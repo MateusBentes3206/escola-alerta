@@ -1,0 +1,857 @@
+import { useState } from "react";
+import {
+  LogIn, School, Users, Plus, ArrowLeft, AlertTriangle, CheckCircle2,
+  BookOpen, CalendarX, MessageSquareWarning, DoorOpen, ChevronRight,
+  ClipboardList, Lightbulb, History, LogOut, X
+} from "lucide-react";
+
+/* ---------------------------------------------------------
+   EscolaAlerta — Protótipo de front-end (MVP)
+   Sem conexão real com back-end: estado local simula a API
+   e o motor de regras (correlação temporal) descrito no
+   pré-projeto do TCC.
+--------------------------------------------------------- */
+
+const TABS = {
+  nota: { label: "Notas", color: "#3E7CB1", icon: BookOpen },
+  falta: { label: "Frequência", color: "#C68A3E", icon: CalendarX },
+  ocorrencia: { label: "Ocorrências", color: "#C44536", icon: MessageSquareWarning },
+  saida: { label: "Saídas", color: "#5B8A5A", icon: DoorOpen },
+};
+
+const SUGESTOES = {
+  faltas: [
+    "Agendar conversa com a família sobre a rotina de frequência.",
+    "Verificar se há barreiras de transporte, saúde ou apoio em casa.",
+  ],
+  notas: [
+    "Encaminhar para reforço escolar na disciplina em queda.",
+    "Agendar atendimento pedagógico individual nas próximas duas semanas.",
+  ],
+  ocorrencias: [
+    "Encaminhar para escuta com a orientação educacional.",
+    "Construir, junto ao aluno, um plano de convivência de curto prazo.",
+  ],
+};
+
+const CAUSA_LABEL = { faltas: "Frequência", notas: "Notas", ocorrencias: "Ocorrências" };
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+
+const CAMPO_POR_TIPO = { nota: "notas", falta: "faltas", ocorrencia: "ocorrencias", saida: "saidas" };
+
+function classificarRisco(aluno) {
+  const nFaltas = aluno.faltas.length;
+  const nOcorrencias = aluno.ocorrencias.length;
+  const nNotasBaixas = aluno.notas.filter((n) => n.valor < 6).length;
+
+  const causas = [];
+  if (nOcorrencias >= 3) causas.push({ tipo: "ocorrencias", peso: 3 });
+  else if (nOcorrencias >= 1) causas.push({ tipo: "ocorrencias", peso: 1 });
+
+  if (nFaltas >= 5) causas.push({ tipo: "faltas", peso: 3 });
+  else if (nFaltas >= 3) causas.push({ tipo: "faltas", peso: 2 });
+  else if (nFaltas >= 1) causas.push({ tipo: "faltas", peso: 1 });
+
+  if (nNotasBaixas >= 2) causas.push({ tipo: "notas", peso: 3 });
+  else if (nNotasBaixas === 1) causas.push({ tipo: "notas", peso: 1 });
+
+  if (causas.length === 0) return { nivel: "baixo", causaPrincipal: null };
+
+  const maxPeso = Math.max(...causas.map((c) => c.peso));
+  const causaPrincipal = causas.find((c) => c.peso === maxPeso).tipo;
+  const nivel = maxPeso >= 3 ? "alto" : maxPeso === 2 ? "moderado" : "baixo";
+  return { nivel, causaPrincipal };
+}
+
+const RISCO_STYLE = {
+  baixo: { cor: "#4F8B5B", bg: "#EAF2EA", label: "Risco baixo" },
+  moderado: { cor: "#B4780F", bg: "#FBF1DF", label: "Risco moderado" },
+  alto: { cor: "#C44536", bg: "#FBE9E6", label: "Risco alto" },
+};
+
+/* ---------------- dados iniciais (mock) ---------------- */
+
+const ALUNO_DEMO_ID = "a1";
+
+function dadosIniciais() {
+  return [
+    {
+      id: ALUNO_DEMO_ID,
+      nome: "Rafael Costa Lima",
+      turma: "8º ano B",
+      responsavel: "Beatriz Lima",
+      notas: [
+        { id: uid(), disciplina: "Matemática", valor: 5.2, periodo: "3º bimestre" },
+        { id: uid(), disciplina: "Português", valor: 5.8, periodo: "3º bimestre" },
+      ],
+      faltas: [
+        { id: uid(), data: "12/08", justificada: false },
+        { id: uid(), data: "14/08", justificada: false },
+        { id: uid(), data: "19/08", justificada: false },
+      ],
+      ocorrencias: [
+        { id: uid(), descricao: "Não entregou trabalho em grupo", gravidade: "leve" },
+      ],
+      saidas: [],
+      planoAcao: null,
+      feedbacks: [],
+    },
+    {
+      id: "a2",
+      nome: "Ana Beatriz Souza",
+      turma: "7º ano A",
+      responsavel: "Marcos Souza",
+      notas: [{ id: uid(), disciplina: "Ciências", valor: 8.4, periodo: "3º bimestre" }],
+      faltas: [],
+      ocorrencias: [],
+      saidas: [],
+      planoAcao: null,
+      feedbacks: [],
+    },
+    {
+      id: "a3",
+      nome: "Diego Matos Pereira",
+      turma: "9º ano C",
+      responsavel: "Sandra Matos",
+      notas: [],
+      faltas: [{ id: uid(), data: "02/09", justificada: true }],
+      ocorrencias: [],
+      saidas: [],
+      planoAcao: null,
+      feedbacks: [],
+    },
+  ];
+}
+
+/* ---------------------- shell / navegação ---------------------- */
+
+export default function App() {
+  const [alunos, setAlunos] = useState(dadosIniciais);
+  const [perfil, setPerfil] = useState(null); // 'orientador' | 'responsavel'
+  const [tela, setTela] = useState("login");
+  const [alunoSelecionado, setAlunoSelecionado] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  function mostrarToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3200);
+  }
+
+  function atualizarAluno(id, updater) {
+    setAlunos((prev) => prev.map((a) => (a.id === id ? updater(a) : a)));
+  }
+
+  function entrar(perfilEscolhido) {
+    setPerfil(perfilEscolhido);
+    if (perfilEscolhido === "orientador") {
+      setTela("orientador-dashboard");
+    } else {
+      setAlunoSelecionado(ALUNO_DEMO_ID);
+      setTela("responsavel-painel");
+    }
+  }
+
+  function sair() {
+    setPerfil(null);
+    setAlunoSelecionado(null);
+    setTela("login");
+  }
+
+  const aluno = alunos.find((a) => a.id === alunoSelecionado);
+
+  return (
+    <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "#F6F3EC", minHeight: "100%", color: "#23303A" }}>
+      <GlobalStyle />
+      {tela !== "login" && (
+        <TopBar
+          perfil={perfil}
+          onVoltar={
+            tela === "orientador-dashboard" || tela === "responsavel-painel"
+              ? null
+              : () => setTela(perfil === "orientador" ? "orientador-dashboard" : "responsavel-painel")
+          }
+          onSair={sair}
+        />
+      )}
+
+      {tela === "login" && <Login onEntrar={entrar} />}
+
+      {tela === "orientador-dashboard" && (
+        <OrientadorDashboard
+          alunos={alunos}
+          onNovoAluno={() => setTela("orientador-cadastro")}
+          onAbrirAluno={(id) => {
+            setAlunoSelecionado(id);
+            setTela("orientador-indicador");
+          }}
+        />
+      )}
+
+      {tela === "orientador-cadastro" && (
+        <CadastrarAluno
+          onCancelar={() => setTela("orientador-dashboard")}
+          onSalvar={(novo) => {
+            const id = uid();
+            setAlunos((prev) => [
+              ...prev,
+              { id, ...novo, notas: [], faltas: [], ocorrencias: [], saidas: [], planoAcao: null, feedbacks: [] },
+            ]);
+            mostrarToast(`Aluno ${novo.nome} cadastrado.`);
+            setTela("orientador-dashboard");
+          }}
+        />
+      )}
+
+      {tela === "orientador-indicador" && aluno && (
+        <RegistrarIndicador
+          aluno={aluno}
+          onVoltar={() => setTela("orientador-dashboard")}
+          onRegistrar={(tipo, dados) => {
+            atualizarAluno(aluno.id, (a) => {
+              const campo = CAMPO_POR_TIPO[tipo];
+              const atualizado = { ...a, [campo]: [...a[campo], { id: uid(), ...dados }] };
+              const risco = classificarRisco(atualizado);
+              if (risco.nivel !== "baixo" && risco.causaPrincipal) {
+                atualizado.planoAcao = {
+                  causa: risco.causaPrincipal,
+                  sugestoes: SUGESTOES[risco.causaPrincipal],
+                  nivel: risco.nivel,
+                };
+              }
+              return atualizado;
+            });
+            mostrarToast("Indicador registrado. Risco recalculado pelo motor de regras.");
+          }}
+        />
+      )}
+
+      {tela === "responsavel-painel" && aluno && (
+        <PainelResponsavel
+          aluno={aluno}
+          onVerPlano={() => setTela("responsavel-plano")}
+        />
+      )}
+
+      {tela === "responsavel-plano" && aluno && (
+        <PlanoDeAcao
+          aluno={aluno}
+          onVoltar={() => setTela("responsavel-painel")}
+          onFeedback={(status, observacao) => {
+            atualizarAluno(aluno.id, (a) => ({
+              ...a,
+              feedbacks: [...a.feedbacks, { id: uid(), status, observacao, data: "hoje" }],
+            }));
+            mostrarToast("Feedback registrado. Obrigado por acompanhar!");
+          }}
+        />
+      )}
+
+      {toast && <Toast texto={toast} onFechar={() => setToast(null)} />}
+    </div>
+  );
+}
+
+/* ---------------------- componentes de layout ---------------------- */
+
+function TopBar({ perfil, onVoltar, onSair }) {
+  return (
+    <div style={{ background: "#223A5E", color: "#F6F3EC", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {onVoltar ? (
+          <button onClick={onVoltar} className="icon-btn" aria-label="Voltar">
+            <ArrowLeft size={19} />
+          </button>
+        ) : (
+          <School size={20} />
+        )}
+        <div>
+          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 17, lineHeight: 1 }}>EscolaAlerta</div>
+          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+            {perfil === "orientador" ? "Orientação escolar" : "Área do responsável"}
+          </div>
+        </div>
+      </div>
+      <button onClick={onSair} className="icon-btn" aria-label="Sair">
+        <LogOut size={18} />
+      </button>
+    </div>
+  );
+}
+
+function Toast({ texto, onFechar }) {
+  return (
+    <div style={{
+      position: "fixed", left: "50%", bottom: 22, transform: "translateX(-50%)",
+      background: "#223A5E", color: "#fff", padding: "12px 18px", borderRadius: 10,
+      display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 24px rgba(0,0,0,.22)",
+      maxWidth: "min(90vw, 420px)", zIndex: 50, fontSize: 14,
+    }}>
+      <CheckCircle2 size={18} color="#8FD19E" style={{ flexShrink: 0 }} />
+      <span>{texto}</span>
+      <button onClick={onFechar} style={{ background: "none", border: "none", color: "#fff", opacity: 0.7, cursor: "pointer", marginLeft: 4 }}>
+        <X size={15} />
+      </button>
+    </div>
+  );
+}
+
+function Page({ children, max = 640 }) {
+  return <div style={{ maxWidth: max, margin: "0 auto", padding: "28px 20px 60px" }}>{children}</div>;
+}
+
+/* ---------------------- LOGIN ---------------------- */
+
+function Login({ onEntrar }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 420 }}>
+        <div style={{ textAlign: "center", marginBottom: 34 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 14, background: "#223A5E", color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
+          }}>
+            <School size={28} />
+          </div>
+          <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, margin: 0, color: "#223A5E" }}>EscolaAlerta</h1>
+          <p style={{ color: "#5C6B78", fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
+            Acompanhamento acadêmico e comportamental para famílias e escola, com alerta antecipado de risco.
+          </p>
+        </div>
+
+        <div className="card" style={{ padding: 22 }}>
+          <label className="field-label">E-mail</label>
+          <input className="field" placeholder="voce@escola.com.br" defaultValue="camila.duarte@escola.com.br" />
+          <label className="field-label" style={{ marginTop: 14 }}>Senha</label>
+          <input className="field" type="password" defaultValue="••••••••" />
+
+          <p style={{ fontSize: 12, color: "#8A7F68", margin: "14px 0 4px", fontFamily: "'Kalam', cursive" }}>
+            protótipo — escolha um perfil para entrar
+          </p>
+
+          <div style={{ display: "grid", gap: 10, marginTop: 6 }}>
+            <button className="btn-primary" onClick={() => onEntrar("orientador")}>
+              <LogIn size={17} /> Entrar como orientador escolar
+            </button>
+            <button className="btn-secondary" onClick={() => onEntrar("responsavel")}>
+              <Users size={17} /> Entrar como responsável
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------- ORIENTADOR: dashboard ---------------------- */
+
+function OrientadorDashboard({ alunos, onNovoAluno, onAbrirAluno }) {
+  return (
+    <Page max={760}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 22, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div className="eyebrow">turma sob acompanhamento</div>
+          <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, margin: "4px 0 0", color: "#223A5E" }}>
+            Seus alunos
+          </h1>
+        </div>
+        <button className="btn-primary" onClick={onNovoAluno}>
+          <Plus size={17} /> Cadastrar aluno
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {alunos.map((aluno) => {
+          const { nivel } = classificarRisco(aluno);
+          const rs = RISCO_STYLE[nivel];
+          return (
+            <button key={aluno.id} onClick={() => onAbrirAluno(aluno.id)} className="card row-card">
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15.5 }}>{aluno.nome}</div>
+                <div style={{ fontSize: 13, color: "#6B7785", marginTop: 2 }}>{aluno.turma} · resp.: {aluno.responsavel}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ background: rs.bg, color: rs.cor, fontSize: 12.5, fontWeight: 600, padding: "5px 11px", borderRadius: 999 }}>
+                  {rs.label}
+                </span>
+                <ChevronRight size={18} color="#A9A192" />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </Page>
+  );
+}
+
+/* ---------------------- ORIENTADOR: cadastrar aluno ---------------------- */
+
+function CadastrarAluno({ onCancelar, onSalvar }) {
+  const [nome, setNome] = useState("");
+  const [turma, setTurma] = useState("");
+  const [responsavel, setResponsavel] = useState("");
+
+  return (
+    <Page max={520}>
+      <div className="eyebrow">novo cadastro</div>
+      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 20px", color: "#223A5E" }}>
+        Cadastrar aluno
+      </h1>
+
+      <div className="card" style={{ padding: 20 }}>
+        <label className="field-label">Nome completo</label>
+        <input className="field" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do aluno" />
+
+        <label className="field-label" style={{ marginTop: 14 }}>Turma</label>
+        <input className="field" value={turma} onChange={(e) => setTurma(e.target.value)} placeholder="ex.: 7º ano A" />
+
+        <label className="field-label" style={{ marginTop: 14 }}>Responsável vinculado</label>
+        <input className="field" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Nome do responsável" />
+
+        <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+          <button className="btn-ghost" onClick={onCancelar} style={{ flex: 1 }}>Cancelar</button>
+          <button
+            className="btn-primary"
+            style={{ flex: 1, justifyContent: "center" }}
+            disabled={!nome || !turma}
+            onClick={() => onSalvar({ nome, turma, responsavel: responsavel || "—" })}
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+/* ---------------------- ORIENTADOR: registrar indicador ---------------------- */
+
+function RegistrarIndicador({ aluno, onRegistrar }) {
+  const [tab, setTab] = useState("nota");
+  const risco = classificarRisco(aluno);
+  const rs = RISCO_STYLE[risco.nivel];
+
+  return (
+    <Page max={640}>
+      <div className="eyebrow">registro de indicador</div>
+      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 4px", color: "#223A5E" }}>
+        {aluno.nome}
+      </h1>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <span style={{ fontSize: 13.5, color: "#6B7785" }}>{aluno.turma}</span>
+        <span style={{ background: rs.bg, color: rs.cor, fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 999 }}>
+          {rs.label}
+        </span>
+      </div>
+
+      <div className="tabs">
+        {Object.entries(TABS).map(([key, t]) => {
+          const Icon = t.icon;
+          const ativo = tab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className="tab"
+              style={{
+                background: ativo ? t.color : "#fff",
+                color: ativo ? "#fff" : "#4A5560",
+                borderColor: t.color,
+              }}
+            >
+              <Icon size={15} /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="card" style={{ padding: 20, borderTop: `4px solid ${TABS[tab].color}` }}>
+        {tab === "nota" && <FormNota onSalvar={(d) => onRegistrar("nota", d)} />}
+        {tab === "falta" && <FormFalta onSalvar={(d) => onRegistrar("falta", d)} />}
+        {tab === "ocorrencia" && <FormOcorrencia onSalvar={(d) => onRegistrar("ocorrencia", d)} />}
+        {tab === "saida" && <FormSaida onSalvar={(d) => onRegistrar("saida", d)} />}
+      </div>
+
+      <HistoricoIndicadores aluno={aluno} />
+    </Page>
+  );
+}
+
+function FormNota({ onSalvar }) {
+  const [disciplina, setDisciplina] = useState("");
+  const [valor, setValor] = useState("");
+  const [periodo, setPeriodo] = useState("3º bimestre");
+  return (
+    <div>
+      <label className="field-label">Disciplina</label>
+      <input className="field" value={disciplina} onChange={(e) => setDisciplina(e.target.value)} placeholder="ex.: Matemática" />
+      <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Nota (0–10)</label>
+          <input className="field" type="number" min="0" max="10" step="0.1" value={valor} onChange={(e) => setValor(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Período</label>
+          <select className="field" value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+            <option>1º bimestre</option><option>2º bimestre</option><option>3º bimestre</option><option>4º bimestre</option>
+          </select>
+        </div>
+      </div>
+      <button
+        className="btn-primary" style={{ marginTop: 18, justifyContent: "center", width: "100%" }}
+        disabled={!disciplina || valor === ""}
+        onClick={() => onSalvar({ disciplina, valor: parseFloat(valor), periodo })}
+      >
+        Registrar nota
+      </button>
+    </div>
+  );
+}
+
+function FormFalta({ onSalvar }) {
+  const [data, setData] = useState("");
+  const [justificada, setJustificada] = useState(false);
+  return (
+    <div>
+      <label className="field-label">Data</label>
+      <input className="field" type="date" value={data} onChange={(e) => setData(e.target.value)} />
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: 14 }}>
+        <input type="checkbox" checked={justificada} onChange={(e) => setJustificada(e.target.checked)} />
+        Falta justificada
+      </label>
+      <button
+        className="btn-primary" style={{ marginTop: 18, justifyContent: "center", width: "100%" }}
+        disabled={!data}
+        onClick={() => onSalvar({ data: formatarData(data), justificada })}
+      >
+        Registrar falta
+      </button>
+    </div>
+  );
+}
+
+function FormOcorrencia({ onSalvar }) {
+  const [descricao, setDescricao] = useState("");
+  const [gravidade, setGravidade] = useState("leve");
+  return (
+    <div>
+      <label className="field-label">Descrição</label>
+      <textarea className="field" rows={3} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="O que aconteceu?" />
+      <label className="field-label" style={{ marginTop: 14 }}>Gravidade</label>
+      <select className="field" value={gravidade} onChange={(e) => setGravidade(e.target.value)}>
+        <option value="leve">Leve</option><option value="moderada">Moderada</option><option value="grave">Grave</option>
+      </select>
+      <button
+        className="btn-primary" style={{ marginTop: 18, justifyContent: "center", width: "100%" }}
+        disabled={!descricao}
+        onClick={() => onSalvar({ descricao, gravidade })}
+      >
+        Registrar ocorrência
+      </button>
+    </div>
+  );
+}
+
+function FormSaida({ onSalvar }) {
+  const [data, setData] = useState("");
+  const [horario, setHorario] = useState("");
+  const [motivo, setMotivo] = useState("");
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Data</label>
+          <input className="field" type="date" value={data} onChange={(e) => setData(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Horário</label>
+          <input className="field" type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
+        </div>
+      </div>
+      <label className="field-label" style={{ marginTop: 14 }}>Motivo</label>
+      <input className="field" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="ex.: consulta médica" />
+      <button
+        className="btn-primary" style={{ marginTop: 18, justifyContent: "center", width: "100%" }}
+        disabled={!data || !motivo}
+        onClick={() => onSalvar({ data: formatarData(data), horario, motivo })}
+      >
+        Registrar saída
+      </button>
+    </div>
+  );
+}
+
+function formatarData(iso) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
+function HistoricoIndicadores({ aluno }) {
+  const itens = [
+    ...aluno.notas.map((n) => ({ tipo: "nota", texto: `${n.disciplina}: nota ${n.valor} (${n.periodo})` })),
+    ...aluno.faltas.map((f) => ({ tipo: "falta", texto: `Falta em ${f.data}${f.justificada ? " · justificada" : ""}` })),
+    ...aluno.ocorrencias.map((o) => ({ tipo: "ocorrencia", texto: `${o.descricao} · gravidade ${o.gravidade}` })),
+    ...aluno.saidas.map((s) => ({ tipo: "saida", texto: `Saída antecipada em ${s.data} às ${s.horario} · ${s.motivo}` })),
+  ];
+  return (
+    <div style={{ marginTop: 26 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <History size={16} color="#6B7785" />
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: "#4A5560" }}>Histórico registrado</span>
+      </div>
+      {itens.length === 0 ? (
+        <p style={{ fontSize: 13.5, color: "#8A93A0" }}>Nenhum indicador registrado ainda para este aluno.</p>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {itens.map((it, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, background: "#fff", border: "1px solid #E4DECE", borderRadius: 8, padding: "9px 12px" }}>
+              <span style={{ width: 8, height: 8, borderRadius: 99, background: TABS[it.tipo].color, flexShrink: 0 }} />
+              {it.texto}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------- RESPONSÁVEL: painel de risco ---------------------- */
+
+function PainelResponsavel({ aluno, onVerPlano }) {
+  const { nivel } = classificarRisco(aluno);
+  const rs = RISCO_STYLE[nivel];
+  const totalIndicadores = aluno.notas.length + aluno.faltas.length + aluno.ocorrencias.length + aluno.saidas.length;
+
+  return (
+    <Page>
+      <div className="eyebrow">painel de risco</div>
+      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 22px", color: "#223A5E" }}>
+        Olá, {aluno.responsavel.split(" ")[0]}
+      </h1>
+
+      <div className="card" style={{ padding: 24, borderLeft: `6px solid ${rs.cor}` }}>
+        <div style={{ fontSize: 13, color: "#6B7785" }}>{aluno.nome} · {aluno.turma}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+          {nivel !== "baixo" && <AlertTriangle size={22} color={rs.cor} />}
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 22, color: rs.cor }}>
+            {rs.label}
+          </span>
+        </div>
+        <p style={{ fontSize: 13.5, color: "#5C6B78", marginTop: 10, lineHeight: 1.55 }}>
+          {nivel === "baixo"
+            ? "Nenhum sinal de risco identificado no momento. Continue acompanhando por aqui."
+            : "O motor de correlação identificou um padrão que pede atenção. Veja o plano de ação sugerido pela escola."}
+        </p>
+        {nivel !== "baixo" && (
+          <button className="btn-primary" style={{ marginTop: 16 }} onClick={onVerPlano}>
+            <ClipboardList size={17} /> Ver plano de ação
+          </button>
+        )}
+      </div>
+
+      <div style={{ marginTop: 26 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: "#4A5560", marginBottom: 10 }}>
+          Histórico de acompanhamento ({totalIndicadores} registros)
+        </div>
+        <HistoricoIndicadores aluno={aluno} />
+      </div>
+    </Page>
+  );
+}
+
+/* ---------------------- RESPONSÁVEL: plano de ação ---------------------- */
+
+function PlanoDeAcao({ aluno, onFeedback }) {
+  const [status, setStatus] = useState("em_andamento");
+  const [observacao, setObservacao] = useState("");
+  const [enviado, setEnviado] = useState(false);
+  const plano = aluno.planoAcao;
+
+  if (!plano) {
+    return (
+      <Page>
+        <p style={{ color: "#6B7785" }}>Nenhum plano de ação ativo no momento.</p>
+      </Page>
+    );
+  }
+
+  return (
+    <Page>
+      <div className="eyebrow">sugestão pedagógica</div>
+      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 6px", color: "#223A5E" }}>
+        Plano de ação — {aluno.nome}
+      </h1>
+      <p style={{ fontSize: 13.5, color: "#6B7785", marginBottom: 20 }}>
+        Causa principal identificada: <strong>{CAUSA_LABEL[plano.causa]}</strong>
+      </p>
+
+      <div className="card" style={{ padding: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <Lightbulb size={18} color="#B4780F" />
+          <span style={{ fontWeight: 600, fontSize: 14.5 }}>Sugestões da matriz pedagógica</span>
+        </div>
+        <div style={{ display: "grid", gap: 10 }}>
+          {plano.sugestoes.map((s, i) => (
+            <div key={i} className="sticky-note">
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 20, marginTop: 18 }}>
+        <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>Registrar feedback de resolução</div>
+        {enviado ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#4F8B5B", fontSize: 14 }}>
+            <CheckCircle2 size={18} /> Feedback enviado. Obrigado por acompanhar!
+          </div>
+        ) : (
+          <>
+            <label className="field-label">Status</label>
+            <select className="field" value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="em_andamento">Em andamento</option>
+              <option value="resolvido">Resolvido</option>
+            </select>
+            <label className="field-label" style={{ marginTop: 14 }}>Observação</label>
+            <textarea className="field" rows={3} value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Conte como está o acompanhamento em casa..." />
+            <button
+              className="btn-primary" style={{ marginTop: 16, justifyContent: "center", width: "100%" }}
+              onClick={() => { onFeedback(status, observacao); setEnviado(true); }}
+            >
+              Enviar feedback
+            </button>
+          </>
+        )}
+
+        {aluno.feedbacks.length > 0 && (
+          <div style={{ marginTop: 18, borderTop: "1px solid #E4DECE", paddingTop: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#8A93A0", marginBottom: 8 }}>FEEDBACKS ANTERIORES</div>
+            {aluno.feedbacks.map((f) => (
+              <div key={f.id} style={{ fontSize: 13, color: "#4A5560", marginBottom: 6 }}>
+                <strong>{f.status === "resolvido" ? "Resolvido" : "Em andamento"}:</strong> {f.observacao || "—"}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Page>
+  );
+}
+
+/* ---------------------- estilo global ---------------------- */
+
+function GlobalStyle() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Kalam:wght@400;700&display=swap');
+
+      * { box-sizing: border-box; }
+
+      .eyebrow {
+        font-family: 'Kalam', cursive;
+        font-size: 13.5px;
+        color: #8A7F68;
+      }
+
+      .card {
+        background: #FFFFFF;
+        border: 1px solid #E4DECE;
+        border-radius: 14px;
+      }
+
+      .row-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        text-align: left;
+        padding: 16px 18px;
+        cursor: pointer;
+        transition: border-color .15s ease, transform .1s ease;
+      }
+      .row-card:hover { border-color: #223A5E; }
+      .row-card:active { transform: scale(0.995); }
+
+      .field-label {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #5C6B78;
+        margin-bottom: 6px;
+      }
+
+      .field {
+        width: 100%;
+        border: 1px solid #D9D2BF;
+        background: #FCFAF5;
+        border-radius: 9px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        color: #23303A;
+      }
+      .field:focus {
+        outline: 2px solid #223A5E;
+        outline-offset: 1px;
+        background: #fff;
+      }
+
+      .btn-primary {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: #223A5E; color: #fff; border: none;
+        padding: 11px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+        cursor: pointer; transition: background .15s ease;
+      }
+      .btn-primary:hover { background: #2C4A73; }
+      .btn-primary:disabled { background: #B9BEC6; cursor: not-allowed; }
+
+      .btn-secondary {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        background: #fff; color: #223A5E; border: 1.5px solid #223A5E;
+        padding: 11px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+        cursor: pointer; transition: background .15s ease;
+      }
+      .btn-secondary:hover { background: #EEF1F5; }
+
+      .btn-ghost {
+        background: none; border: 1px solid #D9D2BF; color: #5C6B78;
+        padding: 11px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+        cursor: pointer;
+      }
+      .btn-ghost:hover { background: #F0ECE0; }
+
+      .icon-btn {
+        background: rgba(255,255,255,.12); border: none; color: #fff;
+        width: 34px; height: 34px; border-radius: 9px;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+      }
+      .icon-btn:hover { background: rgba(255,255,255,.22); }
+
+      .tabs {
+        display: flex; gap: 8px; margin-bottom: -1px; overflow-x: auto; padding-bottom: 2px;
+      }
+      .tab {
+        display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+        border: 1.5px solid; border-bottom: none;
+        padding: 9px 14px; border-radius: 10px 10px 0 0; font-size: 13.5px; font-weight: 600;
+        cursor: pointer;
+      }
+
+      .sticky-note {
+        background: #FCF3D9;
+        border: 1px solid #E9D9A0;
+        border-radius: 4px;
+        padding: 12px 14px;
+        font-size: 13.5px;
+        color: #4A4022;
+        line-height: 1.5;
+        box-shadow: 0 2px 5px rgba(0,0,0,.05);
+      }
+
+      input[type="checkbox"] { width: 15px; height: 15px; }
+    `}</style>
+  );
+}
