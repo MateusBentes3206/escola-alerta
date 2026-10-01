@@ -1,0 +1,30 @@
+# Sobe dois bancos PostgreSQL:
+#  - db      -> desenvolvimento (porta 5432)
+#  - db_test -> testes de integração (porta 5433), dados apagados a cada execução
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: escolaalerta-db
+    environment:
+      POSTGRES_USER: escolaalerta
+      POSTGRES_PASSWORD: escolaalerta
+      POSTGRES_DB: escolaalerta
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  db_test:
+    image: postgres:16-alpine
+    container_name: escolaalerta-db-test
+    environment:
+      POSTGRES_USER: escolaalerta
+      POSTGRES_PASSWORD: escolaalerta
+      POSTGRES_DB: escolaalerta_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data   # em memória: rápido e sempre limpo
+
+volumes:
+  pgdata:

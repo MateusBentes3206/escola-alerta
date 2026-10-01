@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Teste de conexão</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; background: #0B0D10; color: #F4F5F7; }
+  input, button { font: inherit; padding: 8px 10px; border-radius: 6px; border: 1px solid #333; width: 100%; box-sizing: border-box; margin-top: 6px; }
+  button { background: #3D6BC7; color: #fff; cursor: pointer; margin-top: 12px; }
+  pre { background: #16181D; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; font-size: 13px; }
+  .ok { color: #34D399; } .erro { color: #F87171; }
+</style>
+<script>window.ESCOLAALERTA_API_URL = 'http://localhost:3333';</script>
+<script src="api.js"></script>
+</head>
+<body>
+  <h1>EscolaAlerta · teste de conexão</h1>
+  <p>Use para confirmar que o front fala com a API antes de mexer no protótipo.</p>
+
+  <button id="health">1. Testar GET /health</button>
+
+  <label>E-mail <input id="email" value="camila.duarte@escola.com.br" /></label>
+  <label>Senha <input id="senha" type="password" value="senha123" /></label>
+  <button id="login">2. Testar POST /auth/login</button>
+  <button id="me">3. Testar GET /auth/me (rota protegida)</button>
+
+  <pre id="saida">Aguardando...</pre>
+
+<script>
+  const saida = document.getElementById('saida');
+  const mostrar = (ok, dados) => {
+    saida.className = ok ? 'ok' : 'erro';
+    saida.textContent = typeof dados === 'string' ? dados : JSON.stringify(dados, null, 2);
+  };
+  const rodar = (fn) => fn().then((d) => mostrar(true, d)).catch((e) => mostrar(false, `${e.status ?? ''} ${e.message}`));
+
+  document.getElementById('health').onclick = () => rodar(() => api.get('/health'));
+  document.getElementById('login').onclick = () => rodar(() =>
+    api.login(document.getElementById('email').value, document.getElementById('senha').value));
+  document.getElementById('me').onclick = () => rodar(() => api.get('/auth/me'));
+</script>
+</body>
+</html>
