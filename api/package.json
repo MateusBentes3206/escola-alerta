@@ -12,7 +12,8 @@
     "db:reset": "tsx scripts/migrate.ts --reset && tsx scripts/seed.ts",
     "test": "jest --runInBand",
     "test:unit": "jest tests/unit",
-    "test:integration": "jest --runInBand tests/integration"
+    "test:integration": "jest --runInBand tests/integration",
+    "avaliar:motor": "tsx avaliacao/relatorio.ts"
   },
   "author": "Mateus Farias Bentes e Mariana Idalina Bezerra Vidinho",
   "license": "UNLICENSED",

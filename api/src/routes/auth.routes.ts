@@ -1,12 +1,10 @@
 import { Router } from 'express';
-import { pool } from '../config/db';
+import { authService } from '../container';
 import { AuthController } from '../controllers/AuthController';
 import { autenticar } from '../middlewares/auth';
-import { PgUsuarioRepository } from '../repositories/UsuarioRepository';
-import { AuthService } from '../services/AuthService';
 
-// Montagem das camadas: Repository -> Service -> Controller
-const authController = new AuthController(new AuthService(new PgUsuarioRepository(pool)));
+// Montagem das camadas (Repository -> Service) fica em container.ts
+const authController = new AuthController(authService);
 
 export const authRoutes = Router();
 authRoutes.post('/login', authController.login);

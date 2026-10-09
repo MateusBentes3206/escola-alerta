@@ -9,6 +9,7 @@ export interface IUsuarioRepository {
   buscarPorEmail(email: string): Promise<Usuario | null>;
   buscarPorId(id: string): Promise<Usuario | null>;
   criar(dados: { nome: string; email: string; senhaHash: string; perfil: Perfil }): Promise<Usuario>;
+  listarPorPerfil(perfil: Perfil): Promise<Usuario[]>;
 }
 
 // Linha do banco (snake_case) -> objeto de domínio (camelCase)
@@ -51,5 +52,13 @@ export class PgUsuarioRepository implements IUsuarioRepository {
       [dados.nome, dados.email, dados.senhaHash, dados.perfil],
     );
     return mapear(rows[0]);
+  }
+
+  async listarPorPerfil(perfil: Perfil) {
+    const { rows } = await this.pool.query<UsuarioRow>(
+      'SELECT id, nome, email, senha_hash, perfil FROM usuarios WHERE perfil = $1 ORDER BY nome',
+      [perfil],
+    );
+    return rows.map(mapear);
   }
 }

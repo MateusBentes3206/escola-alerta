@@ -41,6 +41,7 @@ describe('AuthService.login (unitário, repositório falso)', () => {
     buscarPorEmail: async (email) => (email === usuario.email ? usuario : null),
     buscarPorId: async (id) => (id === usuario.id ? usuario : null),
     criar: async () => { throw new Error('não usado'); },
+    listarPorPerfil: async () => [usuario],
   };
 
   const service = new AuthService(repoFalso);
