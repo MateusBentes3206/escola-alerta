@@ -13,14 +13,15 @@ const NIVEL_TEXTO: Record<NivelRisco, string> = { BAIXO: 'baixo', MODERADO: 'mod
 
 /**
  * Frase que explica o nível daquele aluno (RNF07), ex.:
- * "Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 8 dias (RN05)."
+ * "Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre + 3 faltas em 8 dias."
  * Sinais em ordem de peso; a correlação, quando houve, é dita no fim.
+ * Texto para família e escola: sem códigos de regra. O código (RN04...) fica em sinal.regraNegocio.
  */
 function montarResumo(nivel: NivelRisco, sinais: SinalDeRisco[], correlacao: boolean): string {
   if (sinais.length === 0) return 'Nenhum sinal de risco nos últimos 30 dias.';
   const partes = [...sinais]
     .sort((a, b) => b.peso - a.peso)
-    .map((s) => `${s.resumo}${s.regraNegocio ? ` (${s.regraNegocio})` : ''}`);
+    .map((s) => s.resumo);
   return `Risco ${NIVEL_TEXTO[nivel]} porque: ${partes.join(' + ')}${correlacao ? '. Os sinais apareceram juntos (correlação)' : ''}.`;
 }
 

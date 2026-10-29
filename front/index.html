@@ -684,7 +684,7 @@ function ExplicacaoRisco({ risco }) {
           <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Por que este nível:</div>
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
             {sinais.map((s) => s.evidencias.map((ev, i) => (
-              <li key={s.regra + i}>{ev}{i === 0 && s.regraNegocio && <strong style={{ color: "var(--text)" }}> · {s.regraNegocio}</strong>}</li>
+              <li key={s.regra + i}>{ev}</li>
             )))}
           </ul>
           {risco.correlacao && (
@@ -723,6 +723,54 @@ const STATUS_SOLICITACAO = {
 
 const FORMATO_LABEL = { PRESENCIAL: "Presencial", LIGACAO: "Ligação", VIDEO: "Vídeo" };
 const DIAS_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+/* Dias úteis: mesma regra da API (api/src/domain/calendario.ts), aqui só para avisar na hora.
+   Segunda a sexta, exceto feriados nacionais (fixos + Sexta-feira Santa). */
+const FERIADOS_FIXOS = { "01-01": "Confraternização Universal", "04-21": "Tiradentes", "05-01": "Dia do Trabalho", "09-07": "Independência",
+  "10-12": "Nossa Senhora Aparecida", "11-02": "Finados", "11-15": "Proclamação da República", "11-20": "Consciência Negra", "12-25": "Natal" };
+
+function sextaFeiraSanta(ano) {
+  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const pascoa = new Date(Date.UTC(ano, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1));
+  pascoa.setUTCDate(pascoa.getUTCDate() - 2);
+  return pascoa.toISOString().slice(0, 10);
+}
+
+/** null se for dia útil; senão o motivo ("sábado", "feriado (Finados)"...). */
+function motivoNaoUtil(h) {
+  if (!h) return null;
+  const data = h.slice(0, 10);
+  const [y, m, d] = data.split("-").map(Number);
+  const dia = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  if (dia === 0) return "domingo";
+  if (dia === 6) return "sábado";
+  if (FERIADOS_FIXOS[data.slice(5)]) return `feriado (${FERIADOS_FIXOS[data.slice(5)]})`;
+  if (data === sextaFeiraSanta(y)) return "feriado (Sexta-feira Santa)";
+  return null;
+}
+
+// Janela de atendimento da escola (mesma da API: HORARIO_ATENDIMENTO em calendario.ts).
+const HORARIO_ATENDIMENTO = { inicio: "07:00", fim: "17:00" };
+
+/** null se o horário serve para agendar; senão a mensagem do problema (dia não útil ou fora do atendimento). */
+function problemaNoHorario(h) {
+  if (!h) return null;
+  const motivo = motivoNaoUtil(h);
+  if (motivo) return `Escolha um dia útil: essa data é ${motivo}.`;
+  const hora = h.slice(11, 16);
+  if (hora < HORARIO_ATENDIMENTO.inicio || hora > HORARIO_ATENDIMENTO.fim) {
+    return `Escolha um horário entre ${HORARIO_ATENDIMENTO.inicio} e ${HORARIO_ATENDIMENTO.fim}.`;
+  }
+  return null;
+}
+
+function AvisoDiaUtil({ horario }) {
+  const problema = problemaNoHorario(horario);
+  if (!problema) return null;
+  return <p role="alert" style={{ fontSize: 12, color: "var(--danger)", margin: "4px 0 0" }}>{problema}</p>;
+}
 
 function formatarHorario(h) {
   if (!h) return "";
@@ -812,6 +860,7 @@ function AgendarConversa({ aluno, solicitacoes, onAgendar, onAceitar }) {
   const [enviando, setEnviando] = useState(false);
   const motivo = aluno.planoAcao ? CAUSA_LABEL[aluno.planoAcao.causa] : "Acompanhamento";
   const preenchidas = opcoes.filter(Boolean);
+  const temDiaNaoUtil = preenchidas.some((o) => problemaNoHorario(o));
   const agora = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
   return (
@@ -856,7 +905,7 @@ function AgendarConversa({ aluno, solicitacoes, onAgendar, onAceitar }) {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            if (preenchidas.length === 0 || enviando) return;
+            if (preenchidas.length === 0 || temDiaNaoUtil || enviando) return;
             setEnviando(true);
             const ok = await onAgendar({ motivo, opcoes: preenchidas, formato, observacao: observacao.trim() || null });
             setEnviando(false);
@@ -866,12 +915,17 @@ function AgendarConversa({ aluno, solicitacoes, onAgendar, onAceitar }) {
           <label className="field-label" htmlFor="agendar-motivo">Motivo</label>
           <input id="agendar-motivo" className="field" value={motivo} readOnly />
           <div className="field-label" style={{ marginTop: 14 }}>Sugira até 3 horários</div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 6px" }}>Somente dias úteis (segunda a sexta, exceto feriados nacionais), das {HORARIO_ATENDIMENTO.inicio} às {HORARIO_ATENDIMENTO.fim}.</p>
           <div style={{ display: "grid", gap: 8 }}>
             {opcoes.map((o, i) => (
-              <input
-                key={i} type="datetime-local" className="field" min={agora} value={o} aria-label={`Opção de horário ${i + 1}`}
-                onChange={(e) => setOpcoes((l) => l.map((x, j) => (j === i ? e.target.value : x)))}
-              />
+              <div key={i}>
+                <input
+                  type="datetime-local" className="field" min={agora} value={o} aria-label={`Opção de horário ${i + 1}`}
+                  aria-invalid={!!problemaNoHorario(o)}
+                  onChange={(e) => setOpcoes((l) => l.map((x, j) => (j === i ? e.target.value : x)))}
+                />
+                <AvisoDiaUtil horario={o} />
+              </div>
             ))}
           </div>
           <label className="field-label" htmlFor="agendar-formato" style={{ marginTop: 14 }}>Formato</label>
@@ -884,7 +938,7 @@ function AgendarConversa({ aluno, solicitacoes, onAgendar, onAceitar }) {
           <textarea id="agendar-obs" className="field" rows={2} value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="ex.: prefiro no fim da tarde" />
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setAbrindo(false)}>Cancelar</button>
-            <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={preenchidas.length === 0 || enviando}>
+            <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={preenchidas.length === 0 || temDiaNaoUtil || enviando}>
               {enviando ? "Enviando..." : "Enviar pedido"}
             </button>
           </div>
@@ -991,10 +1045,13 @@ function ItemSolicitacao({ s, onResponder, onAbrirAluno }) {
 
       {modo === "remarcar" && (
         <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-          <input type="datetime-local" className="field" min={agora} value={horario} onChange={(e) => setHorario(e.target.value)} aria-label="Novo horário" />
+          <div>
+            <input type="datetime-local" className="field" min={agora} value={horario} onChange={(e) => setHorario(e.target.value)} aria-label="Novo horário" aria-invalid={!!problemaNoHorario(horario)} />
+            <AvisoDiaUtil horario={horario} />
+          </div>
           <input className="field" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Mensagem para a família (opcional)" aria-label="Mensagem para a família" />
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn-primary" disabled={!horario} style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => enviar({ acao: "remarcar", horario, mensagem: texto.trim() || null })}>Enviar novo horário</button>
+            <button type="button" className="btn-primary" disabled={!horario || !!problemaNoHorario(horario)} style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => enviar({ acao: "remarcar", horario, mensagem: texto.trim() || null })}>Enviar novo horário</button>
             <button type="button" className="btn-ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => setModo(null)}>Cancelar</button>
           </div>
         </div>

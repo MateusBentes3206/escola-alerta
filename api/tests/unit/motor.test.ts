@@ -119,9 +119,9 @@ describe('UT04 - MotorDeRegras.classificar() com múltiplos sinais', () => {
     expect(c.sinais).toHaveLength(3);
   });
 
-  it('resumo explica o nível com as regras do artigo (RNF07)', () => {
+  it('resumo explica o nível em linguagem simples, sem códigos de regra (RNF07)', () => {
     const c = motor.classificar([nota('Matemática', 5.2), nota('Português', 5.8), ...faltasEspacadas(3)], REF);
-    expect(c.resumo).toBe('Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 11 dias (RN05). Os sinais apareceram juntos (correlação).');
+    expect(c.resumo).toBe('Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre + 3 faltas em 11 dias. Os sinais apareceram juntos (correlação).');
   });
 
   it('RN04 usa a média do bimestre: 4,0 e 7,0 na mesma disciplina dão média 5,5', () => {
@@ -129,6 +129,12 @@ describe('UT04 - MotorDeRegras.classificar() com múltiplos sinais', () => {
     expect(c.nivel).toBe('ALTO');
     expect(c.sinais[0].evidencias.join(' ')).toMatch(/Português: nota 5,0/);
     expect(c.sinais[0].evidencias.join(' ')).toMatch(/Matemática: média 5,5 em 2 avaliações/);
+  });
+
+  it('o código da regra de negócio fica nos dados (rastreabilidade), não no texto', () => {
+    const c = motor.classificar([nota('Matemática', 5.2), nota('Português', 5.8), ...faltasEspacadas(3)], REF);
+    expect(c.sinais.map((s) => s.regraNegocio)).toEqual(['RN05', 'RN04']);
+    expect(c.resumo).not.toMatch(/RN\d/);
   });
 
   it('correlação: dois sinais moderados juntos (faltas 2 + ocorrência 2) viram ALTO', () => {

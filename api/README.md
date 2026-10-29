@@ -2,7 +2,7 @@
 
 API REST do EscolaAlerta (TCC FAMETRO), em camadas **Controller → Service → Repository → PostgreSQL**, com os três padrões do documento de Arquitetura: **Strategy** (motor de regras), **Repository** (acesso a dados) e **Observer** (intervenção orientada).
 
-**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola. A suíte tem 107 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
+**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola. A suíte tem 114 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
 
 ---
 
@@ -87,7 +87,7 @@ POST /alunos/:id/indicadores
 - **Nível:** vale o maior peso (3 alto, 2 moderado, 1 baixo).
 - **Correlação:** dois sinais de peso 2 ou mais ao mesmo tempo fazem o nível subir para **alto**. Três sinais de qualquer peso fazem o nível subir para pelo menos **moderado**.
 - **Causa raiz:** o sinal de maior peso. Em caso de empate, vale a ordem das regras (a mesma do protótipo).
-- **Explicabilidade (RNF07):** cada sinal traz a regra, o RN que ela implementa e frases de evidência. O motor monta uma frase-resumo por aluno, por exemplo: "Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 15 dias (RN05) + 1 ocorrência em 30 dias (RN06). Os sinais apareceram juntos (correlação)." O alerta grava `regra_origem` e os sinais em `detalhes`, e cada sugestão do plano guarda a causa que a originou.
+- **Explicabilidade (RNF07):** cada sinal traz a regra, o RN que ela implementa e frases de evidência. O motor monta uma frase-resumo por aluno, em linguagem simples, por exemplo: "Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre + 3 faltas em 15 dias + 1 ocorrência em 30 dias. Os sinais apareceram juntos (correlação)." Os códigos das regras (RN04, RN05, RN06) **não aparecem na tela**: ficam no campo `regraNegocio` de cada sinal e no alerta gravado, para a rastreabilidade. O alerta grava `regra_origem` e os sinais em `detalhes`, e cada sugestão do plano guarda a causa que a originou.
 - **Histórico (RF08):** só é gravado um alerta novo quando o nível ou a causa mudam, então a tabela `alertas` registra a evolução do risco.
 - **Tempo:** a `ReavaliacaoPeriodica` roda na subida da API e a cada 6 horas. Ela cobre o caso em que o risco muda só porque uma falta saiu da janela de 30 dias.
 - **Parâmetros:** todos os limites estão em [`src/motor/parametros.ts`](src/motor/parametros.ts), e `GET /motor` expõe as regras e os limites em uso.
@@ -126,7 +126,7 @@ Nenhum caso de risco alto foi classificado como baixo, que é o erro mais grave.
 ### Status do plano e agendamento de conversa
 
 - **Status do plano:** ABERTO quando o alerta é gerado. Passa a EM_ANDAMENTO quando a família envia feedback ou quando a escola assume. Só o **orientador** marca como RESOLVIDO. O "resolvido" enviado pela família é um aviso para a escola confirmar. Plano resolvido tira o aluno da lista de atenção do painel até surgir um alerta novo.
-- **Agendamento:** a família pede uma conversa sugerindo de 1 a 3 horários e escolhe o formato. O motivo vem preenchido com a causa do alerta. O pedido segue esta máquina de estados:
+- **Agendamento:** a família pede uma conversa sugerindo de 1 a 3 horários e escolhe o formato. Os horários (inclusive o da remarcação) precisam estar no futuro, em **dia útil** e **das 07:00 às 17:00** (constante `HORARIO_ATENDIMENTO`). Dia útil é segunda a sexta, exceto feriados nacionais (as datas fixas e a Sexta-feira Santa, calculada pela Páscoa). A regra fica em [`src/domain/calendario.ts`](src/domain/calendario.ts). Feriados estaduais e municipais não entram, porque variam por escola. O motivo vem preenchido com a causa do alerta. O pedido segue esta máquina de estados:
 
   | De | Ação | Quem | Para |
   |---|---|---|---|

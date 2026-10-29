@@ -30,7 +30,7 @@ export interface Classificacao {
   regraOrigem: string | null;
   correlacao: boolean;     // nível elevado pela convergência de sinais
   sinais: SinalDeRisco[];
-  resumo: string;          // ex.: 'Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 8 dias (RN05).'
+  resumo: string;          // ex.: 'Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre + 3 faltas em 8 dias.'
   dataReferencia: string;  // AAAA-MM-DD
 }
 

@@ -3,6 +3,7 @@ import { app } from '../../src/app';
 import { pool } from '../../src/config/db';
 import { rodarMigrations } from '../../src/database/migrator';
 import { rodarSeed, SENHA_PADRAO_SEED } from '../../src/database/seed';
+import { ehDiaUtil } from '../../src/domain/calendario';
 
 // Status do plano de ação e agendamento de conversa família-escola, contra o banco de teste.
 
@@ -12,12 +13,27 @@ const BEATRIZ = 'beatriz.lima@email.com';  // responsável do Rafael (risco alto
 const MARCOS = 'marcos.souza@email.com';   // responsável da Ana
 const como = (email: string) => ({ Authorization: `Bearer ${tokens[email]}` });
 
-/** Horário local daqui a N dias, no formato do formulário (AAAA-MM-DDTHH:MM). */
-function daquiA(dias: number, hora = '14:00') {
+const fmt = (d: Date, hora: string) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${hora}`;
+
+/** N-ésimo dia útil a partir de amanhã, no formato do formulário (AAAA-MM-DDTHH:MM). */
+function daquiA(diasUteis: number, hora = '14:00') {
   const d = new Date();
-  d.setDate(d.getDate() + dias);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${hora}`;
+  for (let n = 0; n < diasUteis;) {
+    d.setDate(d.getDate() + 1);
+    if (ehDiaUtil(fmt(d, hora))) n++;
+  }
+  return fmt(d, hora);
 }
+
+/** Próximo sábado (sempre no futuro). */
+function proximoSabado(hora = '10:00') {
+  const d = new Date();
+  do d.setDate(d.getDate() + 1); while (d.getDay() !== 6);
+  return fmt(d, hora);
+}
+
+const ontem = () => { const d = new Date(); d.setDate(d.getDate() - 1); return fmt(d, '14:00'); };
 
 const mensagens = async (email: string) =>
   (await request(app).get('/notificacoes').set(como(email))).body.map((n: { mensagem: string }) => n.mensagem).join('\n');
@@ -67,9 +83,11 @@ describe('Status do plano de ação (Aberto -> Em andamento -> Resolvido)', () =
     expect(await mensagens(BEATRIZ)).toMatch(/marcou o plano de ação de Rafael como resolvido/);
   });
 
-  it('o resumo do risco cita as regras de negócio (RNF07)', async () => {
+  it('o resumo do risco explica o motivo sem códigos de regra (RNF07)', async () => {
     const det = await request(app).get(`/alunos/${rafaelId}`).set(como(BEATRIZ));
-    expect(det.body.risco.resumo).toMatch(/^Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre \(RN04\) \+ 3 faltas em \d+ dias \(RN05\)/);
+    expect(det.body.risco.resumo).toMatch(/^Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre \+ 3 faltas em \d+ dias/);
+    expect(det.body.risco.resumo).not.toMatch(/RN\d/);
+    expect(det.body.risco.sinais.map((s: { regraNegocio: string }) => s.regraNegocio)).toContain('RN04'); // segue nos dados
   });
 });
 
@@ -94,7 +112,9 @@ describe('Agendamento de conversa com o orientador', () => {
 
   it('valida horários: no passado, repetidos ou mais de 3 -> 400', async () => {
     const enviar = (opcoes: string[]) => request(app).post(`/alunos/${rafaelId}/solicitacoes`).set(como(BEATRIZ)).send({ motivo: 'Notas', opcoes, formato: 'VIDEO' });
-    expect((await enviar([daquiA(-1)])).body.erro).toBe('Escolha um horário no futuro.');
+    expect((await enviar([ontem()])).body.erro).toBe('Escolha um horário no futuro.');
+    expect((await enviar([proximoSabado()])).body.erro).toBe('Escolha um dia útil (segunda a sexta, exceto feriados nacionais).');
+    expect((await enviar([daquiA(2, '19:30')])).body.erro).toBe('Escolha um horário entre 07:00 e 17:00.');
     expect((await enviar([daquiA(2), daquiA(2)])).body.erro).toBe('Os horários propostos devem ser diferentes.');
     expect((await enviar([daquiA(1), daquiA(2), daquiA(3), daquiA(4)])).status).toBe(400);
   });
@@ -119,6 +139,12 @@ describe('Agendamento de conversa com o orientador', () => {
     expect(r1.status).toBe(400);
     const r2 = await request(app).patch(`/solicitacoes/${solicitacaoId}`).set(como(BEATRIZ)).send({ acao: 'confirmar', horario: daquiA(2, '09:30') });
     expect(r2.status).toBe(403);
+  });
+
+  it('remarcar também só aceita dia útil', async () => {
+    const r = await request(app).patch(`/solicitacoes/${solicitacaoId}`).set(como(ORIENTADORA)).send({ acao: 'remarcar', horario: proximoSabado() });
+    expect(r.status).toBe(400);
+    expect(r.body.erro).toMatch(/dia útil/);
   });
 
   it('remarcar -> a família recebe o novo horário e aceita -> CONFIRMADA', async () => {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ehDiaUtil, foraDoHorario, HORARIO_ATENDIMENTO } from '../domain/calendario';
 import { TokenPayload } from '../domain/usuario';
 import { AppError } from '../errors/AppError';
 import { IAlertaRepository } from '../repositories/AlertaRepository';
@@ -16,7 +17,11 @@ function agoraLocal(): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-const futuro = horario.refine((h) => h > agoraLocal(), 'Escolha um horário no futuro.');
+// Horário proposto (pela família ou na remarcação): no futuro, em dia útil e dentro do atendimento da escola.
+const futuro = horario
+  .refine((h) => h > agoraLocal(), 'Escolha um horário no futuro.')
+  .refine(ehDiaUtil, 'Escolha um dia útil (segunda a sexta, exceto feriados nacionais).')
+  .refine((h) => !foraDoHorario(h), `Escolha um horário entre ${HORARIO_ATENDIMENTO.inicio} e ${HORARIO_ATENDIMENTO.fim}.`);
 
 export const novaSolicitacaoSchema = z.object({
   motivo: z.string({ error: 'Informe o motivo.' }).trim().min(2, 'Informe o motivo.').max(120),
