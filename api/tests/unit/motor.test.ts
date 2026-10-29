@@ -48,8 +48,8 @@ describe('UT01 - RegraNotas.avaliar()', () => {
 describe('UT02 - RegraFaltas.avaliar()', () => {
   const regra = new RegraFaltas();
 
-  it('5 faltas sem justificativa na janela -> risco alto (peso 3)', () => {
-    expect(regra.avaliar(faltasEspacadas(5), REF)!.peso).toBe(3);
+  it('RN05: 5 faltas sem justificativa na janela -> risco alto (peso 3)', () => {
+    expect(regra.avaliar(faltasEspacadas(5), REF)).toMatchObject({ peso: 3, regraNegocio: 'RN05' });
   });
 
   it('3 faltas espaçadas -> moderado (peso 2)', () => {
@@ -81,11 +81,11 @@ describe('UT02 - RegraFaltas.avaliar()', () => {
 describe('UT03 - RegraOcorrencias.avaliar()', () => {
   const regra = new RegraOcorrencias();
 
-  it('3 ocorrências leves no mês -> risco alto (peso 3)', () => {
-    expect(regra.avaliar([ocorrencia('leve'), ocorrencia('leve'), ocorrencia('leve')], REF)!.peso).toBe(3);
+  it('RN06: 3 ocorrências leves no mês -> risco alto (peso 3)', () => {
+    expect(regra.avaliar([ocorrencia('leve'), ocorrencia('leve'), ocorrencia('leve')], REF)).toMatchObject({ peso: 3, regraNegocio: 'RN06' });
   });
 
-  it('1 ocorrência grave equivale a 3 leves -> peso 3', () => {
+  it('RN06: 1 ocorrência grave equivale a 3 leves -> peso 3', () => {
     expect(regra.avaliar([ocorrencia('grave')], REF)!.peso).toBe(3);
   });
 
@@ -119,6 +119,18 @@ describe('UT04 - MotorDeRegras.classificar() com múltiplos sinais', () => {
     expect(c.sinais).toHaveLength(3);
   });
 
+  it('resumo explica o nível com as regras do artigo (RNF07)', () => {
+    const c = motor.classificar([nota('Matemática', 5.2), nota('Português', 5.8), ...faltasEspacadas(3)], REF);
+    expect(c.resumo).toBe('Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 11 dias (RN05). Os sinais apareceram juntos (correlação).');
+  });
+
+  it('RN04 usa a média do bimestre: 4,0 e 7,0 na mesma disciplina dão média 5,5', () => {
+    const c = motor.classificar([nota('Matemática', 4.0), nota('Matemática', 7.0), nota('Português', 5.0)], REF);
+    expect(c.nivel).toBe('ALTO');
+    expect(c.sinais[0].evidencias.join(' ')).toMatch(/Português: nota 5,0/);
+    expect(c.sinais[0].evidencias.join(' ')).toMatch(/Matemática: média 5,5 em 2 avaliações/);
+  });
+
   it('correlação: dois sinais moderados juntos (faltas 2 + ocorrência 2) viram ALTO', () => {
     const c = motor.classificar([...faltasEspacadas(3), ocorrencia('moderada')], REF);
     expect(c.nivel).toBe('ALTO');
@@ -150,7 +162,7 @@ describe('UT04 - MotorDeRegras.classificar() com múltiplos sinais', () => {
   it('extensível: o motor aceita uma regra nova sem nenhuma alteração (Strategy)', () => {
     const regraNova: RegraDeRisco = {
       nome: 'RegraTeste', causa: 'SAIDAS',
-      avaliar: () => ({ regra: 'RegraTeste', causa: 'SAIDAS', peso: 3, evidencias: ['regra injetada'] }),
+      avaliar: () => ({ regra: 'RegraTeste', causa: 'SAIDAS', regraNegocio: null, peso: 3, evidencias: ['regra injetada'], resumo: 'teste' }),
     };
     const c = new MotorDeRegras([regraNova]).classificar([], REF);
     expect(c).toMatchObject({ nivel: 'ALTO', regraOrigem: 'RegraTeste' });

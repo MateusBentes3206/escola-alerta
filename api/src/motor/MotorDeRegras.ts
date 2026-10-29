@@ -9,6 +9,20 @@ import { RegraOcorrencias } from './regras/RegraOcorrencias';
 import { RegraSaidas } from './regras/RegraSaidas';
 
 const NIVEL_POR_PESO: Record<number, NivelRisco> = { 1: 'BAIXO', 2: 'MODERADO', 3: 'ALTO' };
+const NIVEL_TEXTO: Record<NivelRisco, string> = { BAIXO: 'baixo', MODERADO: 'moderado', ALTO: 'alto' };
+
+/**
+ * Frase que explica o nível daquele aluno (RNF07), ex.:
+ * "Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 8 dias (RN05)."
+ * Sinais em ordem de peso; a correlação, quando houve, é dita no fim.
+ */
+function montarResumo(nivel: NivelRisco, sinais: SinalDeRisco[], correlacao: boolean): string {
+  if (sinais.length === 0) return 'Nenhum sinal de risco nos últimos 30 dias.';
+  const partes = [...sinais]
+    .sort((a, b) => b.peso - a.peso)
+    .map((s) => `${s.resumo}${s.regraNegocio ? ` (${s.regraNegocio})` : ''}`);
+  return `Risco ${NIVEL_TEXTO[nivel]} porque: ${partes.join(' + ')}${correlacao ? '. Os sinais apareceram juntos (correlação)' : ''}.`;
+}
 
 /**
  * Contexto do padrão Strategy: executa cada regra e combina os sinais.
@@ -44,7 +58,7 @@ export class MotorDeRegras {
       .filter((s): s is SinalDeRisco => s !== null);
 
     if (sinais.length === 0) {
-      return { nivel: 'BAIXO', causaRaiz: null, regraOrigem: null, correlacao: false, sinais, dataReferencia };
+      return { nivel: 'BAIXO', causaRaiz: null, regraOrigem: null, correlacao: false, sinais, resumo: montarResumo('BAIXO', sinais, false), dataReferencia };
     }
 
     const maiorPeso = Math.max(...sinais.map((s) => s.peso));
@@ -68,6 +82,7 @@ export class MotorDeRegras {
       regraOrigem: principal.regra,
       correlacao,
       sinais,
+      resumo: montarResumo(nivel, sinais, correlacao),
       dataReferencia,
     };
   }

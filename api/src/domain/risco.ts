@@ -16,8 +16,10 @@ export interface FocoDeReforco {
 export interface SinalDeRisco {
   regra: string;          // nome da estratégia, ex.: 'RegraFaltas'
   causa: CausaRaiz;
+  regraNegocio: string | null; // regra de negócio do artigo que ela implementa, ex.: 'RN05'
   peso: Peso;             // 1 = atenção, 2 = moderado, 3 = alto
   evidencias: string[];   // frases legíveis para o responsável e a escola
+  resumo: string;         // frase curta para o resumo do alerta, ex.: '3 faltas em 8 dias'
   focos?: FocoDeReforco[]; // só na RegraNotas: o que reforçar
 }
 
@@ -28,6 +30,7 @@ export interface Classificacao {
   regraOrigem: string | null;
   correlacao: boolean;     // nível elevado pela convergência de sinais
   sinais: SinalDeRisco[];
+  resumo: string;          // ex.: 'Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 8 dias (RN05).'
   dataReferencia: string;  // AAAA-MM-DD
 }
 

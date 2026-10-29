@@ -24,8 +24,10 @@ export class RegraSaidas implements RegraDeRisco {
     return {
       regra: this.nome,
       causa: this.causa,
+      regraNegocio: null, // 4º indicador do artigo, sem limite numérico definido: limites próprios
       peso: saidas.length >= this.p.moderado ? 2 : 1,
       evidencias: [`${saidas.length} saídas antecipadas nos últimos ${this.p.janelaDias} dias`],
+      resumo: `${saidas.length} saídas antecipadas em ${this.p.janelaDias} dias`,
     };
   }
 }

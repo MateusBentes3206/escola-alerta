@@ -33,13 +33,15 @@ Tudo na interface usa a API e o banco: alunos, indicadores, risco calculado pelo
 
 ### Roteiro de demonstração (ST01–ST03)
 
-1. **Orientadora** (Camila): o painel mostra os três níveis de risco, e no topo aparecem os avisos gerados pelo motor.
+1. **Orientadora** (Camila): os cards de resumo mostram quantos alunos precisam de atenção e quantos estão em cada nível, e a lista traz o risco alto primeiro. No topo aparecem os avisos gerados pelo motor.
 2. Abra **Ana** (risco baixo) e registre 3 faltas sem justificativa em datas diferentes dos últimos 30 dias. Na 3ª falta, o motor gera um alerta e o nível passa para **moderado**.
 3. Em "Como o risco é calculado?", aparecem as evidências que levaram ao nível.
 4. Ainda na Ana, aba **Notas**: lance História, assunto "Brasil Colônia", nota 3,5. O nível vira **moderado** e aparece **"O que reforçar"** com as recomendações de ensino para aquele assunto.
 5. Saia e entre como **Marcos** (pai da Ana): aparece o aviso do novo risco. Em "Ver plano de ação" estão a disciplina, o assunto e a orientação para casa. Envie um feedback.
-6. Volte como **Camila**: o feedback do Marcos aparece nos avisos.
-7. Entre como **Beatriz**: o Rafael está em risco alto por **correlação** entre notas e faltas, e o plano manda reforçar Equações do 1º grau (Matemática) e Concordância verbal (Português).
+   Ainda no plano, clique em **"Agendar conversa com o orientador"**, sugira 2 horários e envie.
+6. Volte como **Camila**: o feedback do Marcos aparece nos avisos e na ficha da Ana, em **"Plano de ação e feedbacks"**, com o plano já "em andamento". Em **Solicitações** (no topo, com contador), confirme um horário ou proponha outro.
+7. Na ficha da Ana, clique em **"Marcar como resolvido"**: a Ana sai da lista de atenção, e o Marcos é avisado.
+8. Entre como **Beatriz**: o Rafael está em risco alto por **correlação** entre notas e faltas. A frase-resumo cita as regras (RN04, RN05 e RN06), e o plano manda reforçar Equações do 1º grau (Matemática) e Concordância verbal (Português).
 
 ### Passo a passo (manual)
 
@@ -61,8 +63,8 @@ Detalhes, endpoints e decisões de segurança: [`api/README.md`](api/README.md).
 ## Testes
 
 ```bash
-cd api && npm test            # 92 testes: unitários, integração e controle de acesso
-cd api && npm run avaliar:motor   # matriz de confusão do motor (RNF04: 97,2% de acerto)
+cd api && npm test            # 107 testes: unitários, integração e controle de acesso
+cd api && npm run avaliar:motor   # matriz de confusão do motor (RNF04: 97,4% de acerto)
 ```
 
 Os testes também rodam automaticamente no GitHub Actions a cada push (aba **Actions**).

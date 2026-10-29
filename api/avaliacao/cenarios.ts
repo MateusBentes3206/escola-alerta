@@ -5,9 +5,10 @@ import { diasAntes, falta, faltasEspacadas, nota, ocorrencia, saida } from '../t
 /**
  * Cenários simulados para avaliar a precisão do motor (RNF04, meta: 80% de acerto).
  *
- * O "esperado" de cada cenário foi definido por julgamento pedagógico ANTES de rodar o motor,
- * e não foi ajustado depois para bater com o resultado. Por isso alguns cenários discordam
- * do motor de propósito: eles mostram limitações reais das regras atuais.
+ * O "esperado" de cada cenário foi definido por julgamento pedagógico ANTES de rodar o motor.
+ * O gabarito não foi ajustado para bater com o resultado. Por isso alguns cenários discordam
+ * do motor: eles mostram limitações reais das regras atuais.
+ * C37 e C38 (acrescentados depois) testam casos acima do limite das RN05 e RN06.
  * Data de referência: 2026-09-30 (quarta-feira).
  */
 export interface Cenario {
@@ -65,4 +66,6 @@ export const CENARIOS: Cenario[] = [
   { id: 'C34', esperado: 'ALTO', descricao: 'Caso Rafael: notas + faltas + ocorrência', historico: [...disc([['Matemática', 5.2], ['Português', 5.8]]), ...faltasEspacadas(3), ocorrencia('leve')] },
   { id: 'C35', esperado: 'ALTO', descricao: 'Quatro faltas + duas disciplinas abaixo de 6', historico: [...faltasEspacadas(4), ...disc([['Matemática', 4.5], ['Ciências', 5.0]])] },
   { id: 'C36', esperado: 'ALTO', descricao: 'Ocorrência grave com notas boas', historico: [ocorrencia('grave'), ...disc([['Matemática', 8], ['Português', 9]])] },
+  { id: 'C37', esperado: 'ALTO', descricao: 'Seis faltas sem justificativa no mês', historico: faltasEspacadas(6) },
+  { id: 'C38', esperado: 'ALTO', descricao: 'Uma ocorrência grave e duas leves no mês', historico: [ocorrencia('grave'), ocorrencia('leve', diasAntes(9)), ocorrencia('leve', diasAntes(16))] },
 ];

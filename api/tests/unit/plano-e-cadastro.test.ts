@@ -8,7 +8,7 @@ import { IAlunoRepository } from '../../src/repositories/AlunoRepository';
 import { AlunoService } from '../../src/services/AlunoService';
 
 const classificacao = (c: Partial<Classificacao>): Classificacao => ({
-  nivel: 'MODERADO', causaRaiz: 'FALTAS', regraOrigem: 'RegraFaltas', correlacao: false, sinais: [], dataReferencia: '2026-09-30', ...c,
+  nivel: 'MODERADO', causaRaiz: 'FALTAS', regraOrigem: 'RegraFaltas', correlacao: false, sinais: [], resumo: '', dataReferencia: '2026-09-30', ...c,
 });
 
 describe('UT08 - GeradorDePlanoDeAcao', () => {
@@ -30,9 +30,9 @@ describe('UT08 - GeradorDePlanoDeAcao', () => {
     const plano = gerador.gerar(classificacao({
       nivel: 'ALTO', causaRaiz: 'NOTAS', correlacao: true,
       sinais: [
-        { regra: 'RegraNotas', causa: 'NOTAS', peso: 3, evidencias: [] },
-        { regra: 'RegraFaltas', causa: 'FALTAS', peso: 2, evidencias: [] },
-        { regra: 'RegraOcorrencias', causa: 'OCORRENCIAS', peso: 1, evidencias: [] },
+        { regra: 'RegraNotas', causa: 'NOTAS', regraNegocio: null, peso: 3, evidencias: [], resumo: '' },
+        { regra: 'RegraFaltas', causa: 'FALTAS', regraNegocio: null, peso: 2, evidencias: [], resumo: '' },
+        { regra: 'RegraOcorrencias', causa: 'OCORRENCIAS', regraNegocio: null, peso: 1, evidencias: [], resumo: '' },
       ],
     }));
     const causas = plano!.sugestoes.map((s) => s.causa);

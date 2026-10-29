@@ -21,6 +21,11 @@ export function somarDias(iso: string, dias: number): string {
   return paraIso(paraUTC(iso) + dias * DIA_MS);
 }
 
+/** Dias corridos de a até b. */
+export function diasEntre(a: string, b: string): number {
+  return Math.round((paraUTC(b) - paraUTC(a)) / DIA_MS);
+}
+
 /** true se a data está entre (referência - janela) e a referência, inclusive. */
 export function dentroDaJanela(iso: string, referencia: string, janelaDias: number): boolean {
   const diff = (paraUTC(referencia) - paraUTC(iso)) / DIA_MS;

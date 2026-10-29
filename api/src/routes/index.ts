@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../config/db';
-import { alertaService, alunoService, indicadorService, motor, notificacaoRepository, publicador } from '../container';
-import { AlertaController, AlunoController, IndicadorController } from '../controllers/AlunoController';
+import { alertaService, alunoService, indicadorService, motor, notificacaoRepository, publicador, solicitacaoService } from '../container';
+import { AlertaController, AlunoController, IndicadorController, SolicitacaoController } from '../controllers/AlunoController';
 import { AppError } from '../errors/AppError';
 import { autenticar, exigirPerfil } from '../middlewares/auth';
 import { PARAMETROS_PADRAO } from '../motor/parametros';
@@ -12,6 +12,7 @@ export const routes = Router();
 const alunos = new AlunoController(alunoService);
 const indicadores = new IndicadorController(indicadorService);
 const alertas = new AlertaController(alertaService);
+const solicitacoes = new SolicitacaoController(solicitacaoService);
 
 // Raiz: identifica a API e lista as rotas (abrir no navegador não dá mais 404).
 routes.get('/', (_req, res) => {
@@ -22,7 +23,8 @@ routes.get('/', (_req, res) => {
       'GET /health', 'GET /motor', 'POST /auth/login', 'GET /auth/me',
       'GET /alunos', 'POST /alunos', 'GET /alunos/:id', 'GET /alunos/:id/indicadores?tipo=',
       'POST /alunos/:id/indicadores', 'PATCH /indicadores/:id', 'DELETE /indicadores/:id',
-      'GET /alertas/:alunoId', 'POST /alertas/:id/feedback', 'GET /responsaveis',
+      'GET /alertas/:alunoId', 'POST /alertas/:id/feedback', 'PATCH /alertas/:id/plano', 'GET /responsaveis',
+      'POST /alunos/:id/solicitacoes', 'GET /solicitacoes?status=&alunoId=', 'PATCH /solicitacoes/:id',
       'GET /notificacoes', 'PATCH /notificacoes/:id/lida',
     ],
   });
@@ -56,6 +58,12 @@ routes.delete('/indicadores/:id', autenticar, exigirPerfil('ORIENTADOR'), indica
 // Alertas (RF08) e feedback da família (RF13)
 routes.get('/alertas/:alunoId', autenticar, alertas.historico);
 routes.post('/alertas/:id/feedback', autenticar, exigirPerfil('RESPONSAVEL'), alertas.feedback);
+routes.patch('/alertas/:id/plano', autenticar, exigirPerfil('ORIENTADOR'), alertas.statusDoPlano);
+
+// Agendamento de conversa família-escola: a família pede; o orientador confirma, remarca, recusa ou conclui.
+routes.post('/alunos/:id/solicitacoes', autenticar, exigirPerfil('RESPONSAVEL'), solicitacoes.criar);
+routes.get('/solicitacoes', autenticar, solicitacoes.listar);
+routes.patch('/solicitacoes/:id', autenticar, solicitacoes.responder);
 
 // Notificações gravadas pelos observadores
 routes.get('/notificacoes', autenticar, async (req, res) => {

@@ -2,7 +2,7 @@
 
 API REST do EscolaAlerta (TCC FAMETRO), em camadas **Controller → Service → Repository → PostgreSQL**, com os três padrões do documento de Arquitetura: **Strategy** (motor de regras), **Repository** (acesso a dados) e **Observer** (intervenção orientada).
 
-**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto. A suíte tem 92 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
+**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola. A suíte tem 107 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
 
 ---
 
@@ -77,17 +77,17 @@ POST /alunos/:id/indicadores
             NotificarResponsavel · NotificarOrientador
 ```
 
-| Regra | Critério | Peso |
-|---|---|---|
-| `RegraNotas` | Nota **mais recente** de cada disciplina. 2+ disciplinas abaixo de 6 = 3. Uma abaixo de 4, ou abaixo de 6 e em queda de 1,5+ ponto = 2. Uma abaixo de 6 = 1. Só queda forte = 1 | 1–3 |
-| `RegraFaltas` | Faltas **não justificadas nos últimos 30 dias**. 5+ faltas, ou 3 dias letivos seguidos = 3. 3–4 faltas = 2. 1–2 faltas = 1 | 1–3 |
-| `RegraOcorrencias` | Pontos de gravidade em 30 dias (leve 1, moderada 2, grave 3). 3+ pontos = 3. 2 = 2. 1 = 1 | 1–3 |
-| `RegraSaidas` | Saídas antecipadas em 30 dias. 4+ = 2. 2–3 = 1. Nunca chega a alto sozinha | 1–2 |
+| Regra | RN | Critério | Peso |
+|---|---|---|---|
+| `RegraNotas` | RN04 | **Média do bimestre mais recente** de cada disciplina. 2+ disciplinas abaixo de 6 = 3. Uma abaixo de 4, ou abaixo de 6 e em queda de 1,5+ ponto = 2. Uma abaixo de 6 = 1. Só queda forte = 1 | 1–3 |
+| `RegraFaltas` | RN05 | Faltas **não justificadas nos últimos 30 dias**. 5+ faltas, ou 3 dias letivos seguidos = 3. 3–4 faltas = 2. 1–2 faltas = 1 | 1–3 |
+| `RegraOcorrencias` | RN06 | Pontos de gravidade em 30 dias (leve 1, moderada 2, grave 3). 3+ pontos = 3. 2 = 2. 1 = 1 | 1–3 |
+| `RegraSaidas` | — | Saídas antecipadas em 30 dias. 4+ = 2. 2–3 = 1. Nunca chega a alto sozinha | 1–2 |
 
 - **Nível:** vale o maior peso (3 alto, 2 moderado, 1 baixo).
 - **Correlação:** dois sinais de peso 2 ou mais ao mesmo tempo fazem o nível subir para **alto**. Três sinais de qualquer peso fazem o nível subir para pelo menos **moderado**.
 - **Causa raiz:** o sinal de maior peso. Em caso de empate, vale a ordem das regras (a mesma do protótipo).
-- **Explicabilidade (RNF07):** cada sinal traz a regra e frases de evidência. O alerta grava `regra_origem` e os sinais em `detalhes`, e cada sugestão do plano guarda a causa que a originou.
+- **Explicabilidade (RNF07):** cada sinal traz a regra, o RN que ela implementa e frases de evidência. O motor monta uma frase-resumo por aluno, por exemplo: "Risco alto porque: Matemática 5,2 e Português 5,8 no 3º bimestre (RN04) + 3 faltas em 15 dias (RN05) + 1 ocorrência em 30 dias (RN06). Os sinais apareceram juntos (correlação)." O alerta grava `regra_origem` e os sinais em `detalhes`, e cada sugestão do plano guarda a causa que a originou.
 - **Histórico (RF08):** só é gravado um alerta novo quando o nível ou a causa mudam, então a tabela `alertas` registra a evolução do risco.
 - **Tempo:** a `ReavaliacaoPeriodica` roda na subida da API e a cada 6 horas. Ela cobre o caso em que o risco muda só porque uma falta saiu da janela de 30 dias.
 - **Parâmetros:** todos os limites estão em [`src/motor/parametros.ts`](src/motor/parametros.ts), e `GET /motor` expõe as regras e os limites em uso.
@@ -104,15 +104,15 @@ Os focos aparecem com a pior nota primeiro. Cada item é gravado em `sugestoes` 
 
 ### Precisão (RNF04)
 
-`npm run avaliar:motor` roda o motor sobre 36 cenários simulados ([`avaliacao/cenarios.ts`](avaliacao/cenarios.ts)). Em cada cenário, o nível esperado foi definido por critério pedagógico **antes** de rodar o motor e não foi ajustado depois.
+`npm run avaliar:motor` roda o motor sobre 38 cenários simulados ([`avaliacao/cenarios.ts`](avaliacao/cenarios.ts)). Em cada cenário, o nível esperado foi definido por critério pedagógico **antes** de rodar o motor e não foi ajustado depois.
 
 ```
                BAIXO  MODERADO      ALTO
      BAIXO        16         0         0
   MODERADO         1        10         0
-      ALTO         0         0         9
+      ALTO         0         0        11
 
-Acurácia: 35/36 = 97.2%  (meta RNF04: 80%)
+Acurácia: 37/38 = 97.4%  (meta RNF04: 80%)
 ```
 
 Nenhum caso de risco alto foi classificado como baixo, que é o erro mais grave.
@@ -120,7 +120,23 @@ Nenhum caso de risco alto foi classificado como baixo, que é o erro mais grave.
 **Histórico da avaliação:**
 - **Versão 1:** 34/36 = 94,4%. As divergências foram C26 e C27.
 - **Versão 2:** 35/36 = 97,2%. A C27 (nota 3,0 isolada) mostrou que a regra não diferenciava o quanto a nota estava abaixo de 6. Com o reforço por assunto, uma nota abaixo de 4 passou a valer peso 2. Essa mudança veio **depois** de ver o resultado da versão 1. Por isso, a melhora na C27 não deve ser lida como validação independente: o próximo passo é validar com cenários novos, de preferência definidos por professores.
+- **Versão 3:** 37/38 = 97,4%. Entraram C37 (6 faltas) e C38 (1 ocorrência grave e 2 leves), dois casos acima do limite das RN05 e RN06. A regra de notas passou a usar a média do bimestre, sem mudar o resultado dos cenários anteriores.
 - **Divergência que continua:** C26, uma falta com três saídas antecipadas. É um padrão de evasão que a soma de sinais fracos ainda não pega.
+
+### Status do plano e agendamento de conversa
+
+- **Status do plano:** ABERTO quando o alerta é gerado. Passa a EM_ANDAMENTO quando a família envia feedback ou quando a escola assume. Só o **orientador** marca como RESOLVIDO. O "resolvido" enviado pela família é um aviso para a escola confirmar. Plano resolvido tira o aluno da lista de atenção do painel até surgir um alerta novo.
+- **Agendamento:** a família pede uma conversa sugerindo de 1 a 3 horários e escolhe o formato. O motivo vem preenchido com a causa do alerta. O pedido segue esta máquina de estados:
+
+  | De | Ação | Quem | Para |
+  |---|---|---|---|
+  | PENDENTE | confirmar um dos horários | orientador | CONFIRMADA |
+  | PENDENTE / REMARCADA | propor outro horário | orientador | REMARCADA |
+  | REMARCADA | aceitar o novo horário | família | CONFIRMADA |
+  | PENDENTE / REMARCADA | recusar com justificativa | orientador | RECUSADA |
+  | CONFIRMADA | concluir (depois da conversa) | orientador | CONCLUIDA |
+
+  Só pode haver um pedido em aberto por aluno. Cada mudança gera um aviso para o outro lado, e uma transição fora da tabela responde **409**.
 
 ## Endpoints
 
@@ -139,7 +155,11 @@ Nenhum caso de risco alto foi classificado como baixo, que é o erro mais grave.
 | PATCH | `/indicadores/:id` | orientador | Edita e reavalia o risco |
 | DELETE | `/indicadores/:id` | orientador | Exclui e reavalia o risco |
 | GET | `/alertas/:alunoId` | dono | Evolução do risco em ordem cronológica, com o plano de cada alerta |
-| POST | `/alertas/:id/feedback` | responsável | `{ status: em_andamento \| resolvido, observacao? }` |
+| POST | `/alertas/:id/feedback` | responsável | `{ status: em_andamento \| resolvido, observacao? }`. Um plano ABERTO passa a EM_ANDAMENTO |
+| PATCH | `/alertas/:id/plano` | orientador | `{ status: EM_ANDAMENTO \| RESOLVIDO }`. Plano resolvido tira o aluno da lista de atenção e avisa a família |
+| POST | `/alunos/:id/solicitacoes` | responsável | Pede conversa: `{ motivo, opcoes: [1 a 3 horários], formato: PRESENCIAL \| LIGACAO \| VIDEO, observacao? }` |
+| GET | `/solicitacoes?status=&alunoId=` | qualquer | Solicitações da conta; filtro `pendentes`, `confirmadas`, `concluidas` ou `recusadas` |
+| PATCH | `/solicitacoes/:id` | conforme a ação | Orientador: `confirmar` (um dos horários), `remarcar` (outro horário), `recusar` (com justificativa), `concluir`. Responsável: `aceitar` o horário remarcado |
 | GET | `/responsaveis` | orientador | Lista para o vínculo no cadastro |
 | GET | `/notificacoes` | qualquer | Avisos gerados pelos observadores |
 | PATCH | `/notificacoes/:id/lida` | dono | Marca o aviso como lido |
@@ -168,7 +188,7 @@ Se usar outra porta, inclua a origem em `FRONT_URL` no `.env` e reinicie a API.
 ## Estrutura
 
 ```
-migrations/          SQL versionado (001 = tabelas do diagrama de classes, 002 = ajustes do motor, 003 = assunto e reforço)
+migrations/          SQL versionado (001 = tabelas do diagrama de classes, 002 = ajustes do motor, 003 = assunto e reforço, 004 = status do plano e agendamento)
 scripts/             migrate e seed via linha de comando
 avaliacao/           cenários simulados + matriz de confusão do motor (RNF04)
 src/
@@ -208,6 +228,7 @@ tests/
 | UT07 | `tests/unit/senha.test.ts` | Aprovado |
 | IT01, IT02, IT05, IT06, IT07, ST04 | `tests/integration/fluxo-risco.test.ts` | Aprovado |
 | IT03, IT04 | `tests/integration/auth.test.ts` | Aprovado |
-| RNF04 | `tests/unit/precisao-motor.test.ts` + `npm run avaliar:motor` | Aprovado (97,2%) |
+| Status do plano e agendamento | `tests/integration/agendamento-e-plano.test.ts` | Aprovado |
+| RNF04 | `tests/unit/precisao-motor.test.ts` + `npm run avaliar:motor` | Aprovado (97,4%) |
 | ST01–ST03 | Roteiro manual na interface (ver README da raiz) | Pendente de execução roteirizada |
 | ST05 | Mobile/web via Flutter | Fora do escopo do protótipo React |

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AlertaService } from '../services/AlertaService';
 import { AlunoService } from '../services/AlunoService';
 import { IndicadorService } from '../services/IndicadorService';
+import { SolicitacaoService } from '../services/SolicitacaoService';
 
 const param = (req: Request, nome: string) => String(req.params[nome]);
 
@@ -56,5 +57,26 @@ export class AlertaController {
 
   feedback = async (req: Request, res: Response) => {
     res.status(201).json(await this.service.registrarFeedback(req.usuario!, param(req, 'id'), req.body));
+  };
+
+  statusDoPlano = async (req: Request, res: Response) => {
+    res.json(await this.service.atualizarStatusDoPlano(req.usuario!, param(req, 'id'), req.body));
+  };
+}
+
+export class SolicitacaoController {
+  constructor(private readonly service: SolicitacaoService) {}
+
+  listar = async (req: Request, res: Response) => {
+    const texto = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+    res.json(await this.service.listar(req.usuario!, { status: texto(req.query.status), alunoId: texto(req.query.alunoId) }));
+  };
+
+  criar = async (req: Request, res: Response) => {
+    res.status(201).json(await this.service.criar(req.usuario!, param(req, 'id'), req.body));
+  };
+
+  responder = async (req: Request, res: Response) => {
+    res.json(await this.service.responder(req.usuario!, param(req, 'id'), req.body));
   };
 }

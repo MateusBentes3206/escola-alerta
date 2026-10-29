@@ -5,7 +5,7 @@ import { PARAMETROS_PADRAO, ParametrosMotor } from '../parametros';
 import { RegraDeRisco } from '../RegraDeRisco';
 
 /**
- * Ocorrências: soma pontos pela gravidade dentro da janela (leve 1, moderada 2, grave 3).
+ * RN06: soma pontos pela gravidade dentro da janela de 30 dias (leve 1, moderada 2, grave 3).
  *  - 3+ pontos (ex.: 3 leves ou 1 grave) ... peso 3
  *  - 2 pontos .............................. peso 2
  *  - 1 ponto ............................... peso 1
@@ -25,13 +25,15 @@ export class RegraOcorrencias implements RegraDeRisco {
     const pontos = ocorrencias.reduce((soma, o) => soma + this.p.pontos[o.gravidade ?? 'leve'], 0);
     const graves = ocorrencias.filter((o) => o.gravidade === 'grave').length;
 
-    const evidencias = [`${ocorrencias.length} ocorrência(s) nos últimos ${this.p.janelaDias} dias (${pontos} ponto(s) de gravidade)`];
+    const evidencias = [`${ocorrencias.length} ocorrência(s) nos últimos ${this.p.janelaDias} dias`];
     if (graves > 0) evidencias.push(`${graves} ocorrência(s) grave(s)`);
 
     let peso: Peso = 1;
     if (pontos >= this.p.alto) peso = 3;
     else if (pontos >= this.p.moderado) peso = 2;
 
-    return { regra: this.nome, causa: this.causa, peso, evidencias };
+    const n = ocorrencias.length;
+    const resumo = `${n} ${n === 1 ? 'ocorrência' : 'ocorrências'} em ${this.p.janelaDias} dias${graves > 0 ? ` (${graves} ${graves === 1 ? 'grave' : 'graves'})` : ''}`;
+    return { regra: this.nome, causa: this.causa, regraNegocio: 'RN06', peso, evidencias, resumo };
   }
 }

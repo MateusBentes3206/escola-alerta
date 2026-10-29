@@ -23,5 +23,5 @@ export const ocorrencia = (gravidade: 'leve' | 'moderada' | 'grave', data = dias
 export const saida = (data: string): Indicador =>
   ({ ...base(), tipo: 'SAIDA', data, horario: '10:00', descricao: 'consulta' });
 
-/** N faltas não consecutivas (uma por semana) dentro da janela de 30 dias. */
-export const faltasEspacadas = (n: number) => Array.from({ length: n }, (_, i) => falta(diasAntes(i * 6 + 1)));
+/** N faltas não consecutivas (a cada 5 dias) dentro da janela de 30 dias; cabem até 6. */
+export const faltasEspacadas = (n: number) => Array.from({ length: n }, (_, i) => falta(diasAntes(i * 5 + 1)));

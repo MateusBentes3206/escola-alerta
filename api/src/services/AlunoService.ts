@@ -60,8 +60,12 @@ export class AlunoService {
 
     return Promise.all(
       alunos.map(async (a) => {
-        const { nivel, causaRaiz, correlacao } = this.motor.classificar(await this.indicadores.listarPorAluno(a.id));
-        return { ...paraDto(a), risco: { nivel, causaRaiz, correlacao } };
+        const { nivel, causaRaiz, correlacao, resumo } = this.motor.classificar(await this.indicadores.listarPorAluno(a.id));
+        const ultimo = await this.alertas.ultimoDoAluno(a.id);
+        const plano = ultimo ? await this.alertas.statusDoPlano(ultimo.id) : null;
+        // Lista de atenção: risco moderado/alto cujo plano ainda não foi resolvido pela escola.
+        const atencao = nivel !== 'BAIXO' && plano?.status !== 'RESOLVIDO';
+        return { ...paraDto(a), risco: { nivel, causaRaiz, correlacao, resumo }, planoStatus: plano?.status ?? null, atencao };
       }),
     );
   }
@@ -81,6 +85,7 @@ export class AlunoService {
     if (ultimo && ultimo.nivel !== 'BAIXO') {
       const { acoes, reforcos } = organizarPlano(await this.alertas.sugestoesDoAlerta(ultimo.id));
       planoAtual = {
+        ...(await this.alertas.statusDoPlano(ultimo.id)),
         alertaId: ultimo.id,
         nivel: ultimo.nivel,
         causaRaiz: ultimo.causaRaiz,

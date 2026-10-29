@@ -10,6 +10,13 @@ export interface Feedback {
   criadoEm: string;
 }
 
+export type StatusPlano = 'ABERTO' | 'EM_ANDAMENTO' | 'RESOLVIDO';
+
+export interface StatusDoPlano {
+  status: StatusPlano;
+  atualizadoEm: string;
+}
+
 export interface IAlertaRepository {
   ultimoDoAluno(alunoId: string): Promise<Alerta | null>;
   listarPorAluno(alunoId: string): Promise<Alerta[]>;
@@ -19,6 +26,8 @@ export interface IAlertaRepository {
   sugestoesDoAlerta(alertaId: string): Promise<Sugestao[]>;
   criarFeedback(dados: { alertaId: string; responsavelId: string; status: Feedback['status']; observacao: string | null }): Promise<Feedback>;
   feedbacksDoAluno(alunoId: string): Promise<Feedback[]>;
+  statusDoPlano(alertaId: string): Promise<StatusDoPlano | null>;
+  atualizarStatusDoPlano(alertaId: string, status: StatusPlano, usuarioId: string): Promise<void>;
 }
 
 interface AlertaRow {
@@ -142,5 +151,22 @@ export class PgAlertaRepository implements IAlertaRepository {
       [alunoId],
     );
     return rows.map(mapearFeedback);
+  }
+
+  async statusDoPlano(alertaId: string) {
+    const { rows } = await this.pool.query<{ status: StatusPlano; atualizado_em: Date }>(
+      'SELECT status, atualizado_em FROM planos_acao WHERE alerta_id = $1',
+      [alertaId],
+    );
+    return rows[0] ? { status: rows[0].status, atualizadoEm: rows[0].atualizado_em.toISOString() } : null;
+  }
+
+  async atualizarStatusDoPlano(alertaId: string, status: StatusPlano, usuarioId: string) {
+    await this.pool.query(
+      `UPDATE planos_acao SET status = $2::varchar, atualizado_em = now(),
+         resolvido_por = CASE WHEN $2::varchar = 'RESOLVIDO' THEN $3::uuid ELSE NULL END
+       WHERE alerta_id = $1`,
+      [alertaId, status, usuarioId],
+    );
   }
 }

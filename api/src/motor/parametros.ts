@@ -14,16 +14,17 @@ export interface ParametrosMotor {
 }
 
 export const PARAMETROS_PADRAO: ParametrosMotor = {
-  // Nota abaixo de 6 é o critério de recuperação mais comum nas redes de ensino.
-  // Abaixo de 4 é defasagem grave no assunto: sozinha já é risco moderado.
+  // RN04: média do bimestre abaixo de 6 em duas disciplinas = risco alto.
+  // Média abaixo de 4 em uma disciplina é defasagem grave: sozinha já é risco moderado.
   // Queda de 1,5 ponto entre bimestres na mesma disciplina indica tendência, mesmo acima da média.
   notas: { limite: 6, muitoBaixa: 4, disciplinasParaAlto: 2, quedaRelevante: 1.5 },
 
-  // Faltas não justificadas nos últimos 30 dias. 3 dias letivos seguidos sem justificativa
-  // já é alto: é o gatilho usual de busca ativa escolar.
+  // RN05: 5 ou mais faltas sem justificativa em 30 dias, ou 3 dias letivos seguidos = risco alto.
+  // 3 dias seguidos sem justificativa é o gatilho usual de busca ativa escolar. 3 ou 4 faltas = moderado.
   faltas: { janelaDias: 30, moderado: 3, alto: 5, sequenciaAlto: 3 },
 
-  // Ocorrências nos últimos 30 dias, pontuadas pela gravidade (3 leves = 1 grave).
+  // RN06: ocorrências em 30 dias pontuadas pela gravidade (leve 1, moderada 2, grave 3).
+  // 3+ pontos = risco alto (3 leves ou 1 grave); 2 pontos = moderado.
   ocorrencias: { janelaDias: 30, pontos: { leve: 1, moderada: 2, grave: 3 }, moderado: 2, alto: 3 },
 
   // Saídas antecipadas são sinal fraco: sozinhas nunca passam de moderado.
