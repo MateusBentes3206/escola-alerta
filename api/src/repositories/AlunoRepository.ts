@@ -7,6 +7,8 @@ export interface IAlunoRepository {
   listarPorResponsavel(responsavelId: string): Promise<Aluno[]>;
   buscarPorId(id: string): Promise<Aluno | null>;
   criar(dados: { nome: string; turma: string; orientadorId: string; responsavelId: string | null }): Promise<Aluno>;
+  confirmarVinculo(id: string): Promise<void>;
+  excluir(id: string): Promise<void>;
 }
 
 interface AlunoRow {
@@ -16,10 +18,11 @@ interface AlunoRow {
   orientador_id: string;
   responsavel_id: string | null;
   responsavel_nome: string | null;
+  vinculo_confirmado: boolean;
 }
 
 const SELECT = `
-  SELECT a.id, a.nome, a.turma, a.orientador_id, a.responsavel_id, r.nome AS responsavel_nome
+  SELECT a.id, a.nome, a.turma, a.orientador_id, a.responsavel_id, a.vinculo_confirmado, r.nome AS responsavel_nome
   FROM alunos a LEFT JOIN usuarios r ON r.id = a.responsavel_id`;
 
 function mapear(row: AlunoRow): Aluno {
@@ -30,6 +33,7 @@ function mapear(row: AlunoRow): Aluno {
     orientadorId: row.orientador_id,
     responsavelId: row.responsavel_id,
     responsavelNome: row.responsavel_nome,
+    vinculoConfirmado: row.vinculo_confirmado,
   };
 }
 
@@ -62,5 +66,13 @@ export class PgAlunoRepository implements IAlunoRepository {
       [dados.nome, dados.turma, dados.orientadorId, dados.responsavelId],
     );
     return (await this.buscarPorId(rows[0].id))!;
+  }
+
+  async confirmarVinculo(id: string) {
+    await this.pool.query('UPDATE alunos SET vinculo_confirmado = true WHERE id = $1', [id]);
+  }
+
+  async excluir(id: string) {
+    await this.pool.query('DELETE FROM alunos WHERE id = $1', [id]);
   }
 }

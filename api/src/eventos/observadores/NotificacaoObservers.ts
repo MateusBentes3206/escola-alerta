@@ -16,7 +16,7 @@ export class NotificarResponsavel implements ObservadorDeAlerta {
 
   async notificar(evento: AlertaGerado): Promise<void> {
     const { aluno, alerta } = evento;
-    if (!aluno.responsavelId) return;
+    if (!aluno.responsavelId || !aluno.vinculoConfirmado) return; // vínculo da família ainda não confirmado
     const primeiroNome = aluno.nome.split(' ')[0];
 
     const mensagem =

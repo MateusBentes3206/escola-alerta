@@ -1,4 +1,4 @@
-# Sobe dois bancos PostgreSQL:
+# Sobe dois bancos PostgreSQL e o Mailpit (e-mail de teste):
 #  - db      -> desenvolvimento (porta 5432)
 #  - db_test -> testes de integração (porta 5433), dados apagados a cada execução
 services:
@@ -25,6 +25,15 @@ services:
       - "5433:5432"
     tmpfs:
       - /var/lib/postgresql/data   # em memória: rápido e sempre limpo
+
+  # Servidor de e-mail de teste: recebe tudo o que a API envia (nada sai para a internet).
+  # Caixa de entrada em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: escolaalerta-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # caixa de entrada no navegador
 
 volumes:
   pgdata:

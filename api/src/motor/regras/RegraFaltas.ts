@@ -40,6 +40,6 @@ export class RegraFaltas implements RegraDeRisco {
     const intervalo = diasEntre(faltas[0], faltas[faltas.length - 1]) + 1;
     const resumo = faltas.length === 1 ? '1 falta sem justificativa' : `${faltas.length} faltas em ${intervalo} dias`;
 
-    return { regra: this.nome, causa: this.causa, regraNegocio: 'RN05', peso, evidencias, resumo };
+    return { regra: this.nome, causa: this.causa, regraNegocio: 'RN05', peso, evidencias, resumo, metricas: { faltas: faltas.length, sequencia } };
   }
 }

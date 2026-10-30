@@ -100,6 +100,6 @@ export class RegraNotas implements RegraDeRisco {
       ? `${lista.length > 1 ? `${lista.slice(0, -1).join(', ')} e ${lista[lista.length - 1]}` : lista[0]}${periodo}`
       : `queda de nota em ${emQueda.join(', ')}`;
 
-    return { regra: this.nome, causa: this.causa, regraNegocio: 'RN04', peso, evidencias, resumo, focos };
+    return { regra: this.nome, causa: this.causa, regraNegocio: 'RN04', peso, evidencias, resumo, focos, metricas: { disciplinasAbaixo: abaixo.length, emQueda: emQueda.length } };
   }
 }

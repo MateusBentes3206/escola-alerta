@@ -6,6 +6,7 @@ import { MotorDeRegras } from '../motor/MotorDeRegras';
 import { IAlertaRepository } from '../repositories/AlertaRepository';
 import { IAlunoRepository } from '../repositories/AlunoRepository';
 import { IIndicadorRepository } from '../repositories/IndicadorRepository';
+import { MatrizService } from './MatrizService';
 
 /**
  * Orquestra o fluxo do alerta (RF07 + RF08 + RF12):
@@ -22,6 +23,7 @@ export class ServicoDeRisco {
     private readonly motor: MotorDeRegras,
     private readonly gerador: GeradorDePlanoDeAcao,
     private readonly publicador: PublicadorDeAlertas,
+    private readonly matrizes: MatrizService,
   ) {}
 
   async reavaliar(alunoId: string, dataReferencia?: string): Promise<{ classificacao: Classificacao; alerta: Alerta | null }> {
@@ -38,9 +40,10 @@ export class ServicoDeRisco {
 
     if (!mudou) return { classificacao, alerta: null };
 
-    const plano = this.gerador.gerar(classificacao);
+    // O plano usa a matriz da escola (orientador do aluno) no momento do alerta.
+    const plano = this.gerador.gerar(classificacao, await this.matrizes.matrizDoOrientador(aluno.orientadorId));
     const alerta = await this.alertas.criarComPlano(alunoId, classificacao, plano);
-    await this.publicador.publicar({ alerta, aluno, plano, nivelAnterior: ultimo?.nivel ?? null });
+    await this.publicador.publicar({ alerta, aluno, plano, nivelAnterior: ultimo?.nivel ?? null, resumo: classificacao.resumo });
 
     return { classificacao, alerta };
   }

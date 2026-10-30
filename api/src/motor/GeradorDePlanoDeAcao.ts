@@ -37,7 +37,8 @@ export const SUGESTAO_PRAZO_ALTO = 'Risco alto: a escola deve retornar o contato
 export class GeradorDePlanoDeAcao {
   constructor(private readonly matriz: Record<CausaRaiz, string[]> = MATRIZ_DE_SUGESTOES) {}
 
-  gerar(classificacao: Classificacao): PlanoDeAcao | null {
+  /** `matriz`: a da escola (editável); sem ela, vale a passada no construtor (padrão). */
+  gerar(classificacao: Classificacao, matriz: Record<CausaRaiz, string[]> = this.matriz): PlanoDeAcao | null {
     const { nivel, causaRaiz, sinais, correlacao } = classificacao;
     if (nivel === 'BAIXO' || !causaRaiz) return null;
 
@@ -45,11 +46,11 @@ export class GeradorDePlanoDeAcao {
     const adicionar = (texto: string, causa: CausaRaiz, tipo: TipoSugestao = 'ACAO', disciplina: string | null = null, assunto: string | null = null) =>
       sugestoes.push({ texto, causa, ordem: sugestoes.length + 1, tipo, disciplina, assunto });
 
-    for (const texto of this.matriz[causaRaiz]) adicionar(texto, causaRaiz);
+    for (const texto of matriz[causaRaiz]) adicionar(texto, causaRaiz);
 
     if (correlacao) {
       for (const sinal of sinais) {
-        if (sinal.causa !== causaRaiz && sinal.peso >= 2) adicionar(this.matriz[sinal.causa][0], sinal.causa);
+        if (sinal.causa !== causaRaiz && sinal.peso >= 2) adicionar(matriz[sinal.causa][0], sinal.causa);
       }
     }
 

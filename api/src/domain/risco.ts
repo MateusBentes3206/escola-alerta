@@ -21,6 +21,7 @@ export interface SinalDeRisco {
   evidencias: string[];   // frases legíveis para o responsável e a escola
   resumo: string;         // frase curta para o resumo do alerta, ex.: '3 faltas em 8 dias'
   focos?: FocoDeReforco[]; // só na RegraNotas: o que reforçar
+  metricas?: Record<string, number>; // números do sinal (ex.: { faltas: 3, sequencia: 1 }), usados para comparar alunos
 }
 
 /** Resultado do MotorDeRegras para um aluno numa data de referência. */

@@ -28,6 +28,7 @@ export class RegraSaidas implements RegraDeRisco {
       peso: saidas.length >= this.p.moderado ? 2 : 1,
       evidencias: [`${saidas.length} saídas antecipadas nos últimos ${this.p.janelaDias} dias`],
       resumo: `${saidas.length} saídas antecipadas em ${this.p.janelaDias} dias`,
+      metricas: { saidas: saidas.length },
     };
   }
 }

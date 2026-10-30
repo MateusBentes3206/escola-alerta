@@ -69,11 +69,18 @@
 
     get: (caminho) => requisicao('GET', caminho),
     post: (caminho, corpo) => requisicao('POST', caminho, corpo),
+    put: (caminho, corpo) => requisicao('PUT', caminho, corpo),
     patch: (caminho, corpo) => requisicao('PATCH', caminho, corpo),
     del: (caminho) => requisicao('DELETE', caminho),
 
     async login(email, senha) {
       const { token, usuario } = await requisicao('POST', '/auth/login', { email, senha });
+      sessao.salvar(token, usuario);
+      return usuario;
+    },
+    /** Cadastro do responsável com os filhos: já entra logado, como no login. */
+    async cadastrar(dados) {
+      const { token, usuario } = await requisicao('POST', '/auth/cadastro', dados);
       sessao.salvar(token, usuario);
       return usuario;
     },

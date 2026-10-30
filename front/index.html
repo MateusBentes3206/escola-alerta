@@ -234,7 +234,7 @@ function riscoDaApi(r) {
 function alunoResumoDaApi(a) {
   return {
     id: a.id, nome: a.nome, turma: a.turma, responsavel: a.responsavel ? a.responsavel.nome : "—", risco: riscoDaApi(a.risco),
-    planoStatus: a.planoStatus || null, atencao: !!a.atencao,
+    planoStatus: a.planoStatus || null, atencao: !!a.atencao, vinculoConfirmado: a.vinculoConfirmado !== false,
   };
 }
 
@@ -386,6 +386,17 @@ function App() {
     try { await api.patch(`/notificacoes/${id}/lida`); } catch (e) { carregarNotificacoes(); }
   }
 
+  async function decidirVinculo(confirmar) {
+    try {
+      await api.patch(`/alunos/${aluno.id}/vinculo`, { confirmar });
+      await carregarAlunos();
+      if (confirmar) { await abrirAluno(aluno.id); mostrarToast("Vínculo confirmado. A família foi avisada."); }
+      else { setTela("orientador-dashboard"); mostrarToast("Cadastro recusado. A família foi avisada para procurar a escola."); }
+    } catch (e) {
+      falhou(e);
+    }
+  }
+
   async function mudarStatusPlano(status) {
     try {
       await api.patch(`/alertas/${aluno.planoAcao.alertaId}/plano`, { status });
@@ -430,7 +441,7 @@ function App() {
   return (
     <div data-theme={tema === "claro" ? "light" : undefined} style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "var(--bg)", minHeight: "100vh", color: "var(--text)" }}>
       <a href="#main-content" className="skip-link">Pular para o conteúdo</a>
-      {tela !== "login" && (
+      {tela !== "login" && tela !== "cadastro-familia" && (
         <TopBar
           perfil={perfil}
           tema={tema}
@@ -443,10 +454,19 @@ function App() {
           onSair={sair}
           solicitacoesPendentes={perfil === "orientador" ? solicitacoes.filter((s) => s.status === "PENDENTE").length : null}
           onSolicitacoes={() => { carregarSolicitacoes(); setTela("orientador-solicitacoes"); }}
+          onMatriz={perfil === "orientador" ? () => setTela("orientador-matriz") : null}
         />
       )}
 
-      {tela === "login" && <Login onEntrar={entrar} tema={tema} onAlternarTema={alternarTema} />}
+      {tela === "login" && <Login onEntrar={entrar} onCriarConta={() => setTela("cadastro-familia")} tema={tema} onAlternarTema={alternarTema} />}
+
+      {tela === "cadastro-familia" && (
+        <CadastroFamilia
+          tema={tema} onAlternarTema={alternarTema}
+          onVoltar={() => setTela("login")}
+          onCadastrado={(usuario) => { entrar(usuario); mostrarToast("Conta criada! A escola vai confirmar o cadastro dos seus filhos."); }}
+        />
+      )}
 
       {tela === "orientador-dashboard" && (
         <OrientadorDashboard
@@ -477,6 +497,7 @@ function App() {
         <RegistrarIndicador
           aluno={aluno}
           onStatusPlano={mudarStatusPlano}
+          onDecidirVinculo={decidirVinculo}
           onRegistrar={(tipo, dados) =>
             alterarIndicador(api.post(`/alunos/${aluno.id}/indicadores`, indicadorParaApi(tipo, dados)), "Indicador registrado.")}
           onExcluir={(tipo, indicadorId) =>
@@ -487,6 +508,8 @@ function App() {
           }}
         />
       )}
+
+      {tela === "orientador-matriz" && <EditorMatriz onSalvo={mostrarToast} onErro={falhou} />}
 
       {tela === "orientador-solicitacoes" && (
         <CaixaDeSolicitacoes
@@ -538,7 +561,7 @@ function App() {
 
 /* ---------------------- componentes de layout ---------------------- */
 
-function TopBar({ perfil, onVoltar, onSair, tema, onAlternarTema, solicitacoesPendentes, onSolicitacoes }) {
+function TopBar({ perfil, onVoltar, onSair, tema, onAlternarTema, solicitacoesPendentes, onSolicitacoes, onMatriz }) {
   return (
     <header style={{ background: "var(--bg)", color: "var(--text)", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10, borderBottom: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -563,6 +586,11 @@ function TopBar({ perfil, onVoltar, onSair, tema, onAlternarTema, solicitacoesPe
             {solicitacoesPendentes > 0 && (
               <span style={{ marginLeft: 6, background: "var(--danger)", color: "#fff", borderRadius: 99, fontSize: 11, fontWeight: 700, padding: "1px 7px" }}>{solicitacoesPendentes}</span>
             )}
+          </button>
+        )}
+        {onMatriz && (
+          <button onClick={onMatriz} className="btn-ghost" style={{ padding: "6px 12px", fontSize: 13 }} aria-label="Matriz de sugestões do plano de ação">
+            <Icon name="table-list" size={14} /> Matriz
           </button>
         )}
         <button onClick={onAlternarTema} className="icon-btn" aria-label={tema === "claro" ? "Ativar modo escuro" : "Ativar modo claro"}>
@@ -1094,9 +1122,232 @@ function ResumoTurma({ alunos, filtro, onFiltrar }) {
   );
 }
 
+/* ---------------------- ORIENTADOR: matriz e análise da turma ---------------------- */
+
+const CAUSAS_MATRIZ = [["FALTAS", "Frequência"], ["NOTAS", "Notas"], ["OCORRENCIAS", "Ocorrências"], ["SAIDAS", "Saídas antecipadas"]];
+
+/** A escola edita as ações sugeridas no plano. Vale para planos novos; os já gerados não mudam. */
+function EditorMatriz({ onSalvo, onErro }) {
+  const [dados, setDados] = useState(null);
+  const [matriz, setMatriz] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function carregar() {
+    try {
+      const d = await api.get("/matriz");
+      setDados(d);
+      setMatriz(JSON.parse(JSON.stringify(d.matriz)));
+    } catch (e) { onErro(e); }
+  }
+  useEffect(() => { carregar(); }, []);
+
+  if (!matriz) return <Page><p style={{ color: "var(--text-muted)" }}>Carregando a matriz...</p></Page>;
+
+  const alterar = (causa, fn) => setMatriz((m) => ({ ...m, [causa]: fn([...m[causa]]) }));
+  const mudou = JSON.stringify(matriz) !== JSON.stringify(dados.matriz);
+  const invalida = CAUSAS_MATRIZ.some(([c]) => matriz[c].length === 0 || matriz[c].some((t) => t.trim().length < 5));
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      const d = await api.put("/matriz", Object.fromEntries(CAUSAS_MATRIZ.map(([c]) => [c, matriz[c].map((t) => t.trim())])));
+      setDados(d); setMatriz(JSON.parse(JSON.stringify(d.matriz)));
+      onSalvo("Matriz salva. Ela vale para os próximos planos de ação.");
+    } catch (e) { onErro(e); }
+    setSalvando(false);
+  }
+
+  async function restaurar() {
+    try {
+      const d = await api.del("/matriz");
+      setDados(d); setMatriz(JSON.parse(JSON.stringify(d.matriz)));
+      onSalvo("Matriz padrão restaurada.");
+    } catch (e) { onErro(e); }
+  }
+
+  return (
+    <Page max={760}>
+      <div className="eyebrow">plano de ação da escola</div>
+      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, margin: "4px 0 6px" }}>Matriz de sugestões</h1>
+      <p style={{ fontSize: 13.5, color: "var(--text-muted)", margin: "0 0 18px", lineHeight: 1.55 }}>
+        Ações que entram no plano conforme a causa do alerta. Adapte à realidade da escola.
+        As mudanças valem para os <strong style={{ color: "var(--text)" }}>próximos planos</strong>; os já gerados ficam como estavam.
+        {dados.personalizada ? " Esta é a matriz da escola." : " Você está vendo a matriz padrão do sistema."}
+      </p>
+
+      <div style={{ display: "grid", gap: 14 }}>
+        {CAUSAS_MATRIZ.map(([causa, titulo]) => (
+          <section key={causa} className="card" style={{ padding: 18 }} aria-label={`Sugestões para ${titulo}`}>
+            <h2 style={{ fontSize: 15, margin: "0 0 10px" }}>{titulo}</h2>
+            <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+              {matriz[causa].map((texto, i) => (
+                <li key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 10, minWidth: 16 }}>{i + 1}.</span>
+                  <textarea
+                    className="field" rows={2} value={texto} maxLength={300} aria-label={`${titulo}, sugestão ${i + 1}`}
+                    aria-invalid={texto.trim().length < 5} style={{ flex: 1 }}
+                    onChange={(e) => alterar(causa, (l) => { l[i] = e.target.value; return l; })}
+                  />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <button type="button" className="icon-btn" aria-label="Subir" disabled={i === 0} onClick={() => alterar(causa, (l) => { [l[i - 1], l[i]] = [l[i], l[i - 1]]; return l; })}><Icon name="arrow-up" size={11} /></button>
+                    <button type="button" className="icon-btn" aria-label="Descer" disabled={i === matriz[causa].length - 1} onClick={() => alterar(causa, (l) => { [l[i + 1], l[i]] = [l[i], l[i + 1]]; return l; })}><Icon name="arrow-down" size={11} /></button>
+                    <button type="button" className="icon-btn" aria-label="Remover" disabled={matriz[causa].length === 1} onClick={() => alterar(causa, (l) => l.filter((_, j) => j !== i))} style={{ color: "var(--danger)" }}><Icon name="trash" size={11} /></button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {matriz[causa].length < 6 && (
+              <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", fontSize: 13 }} onClick={() => alterar(causa, (l) => [...l, ""])}>
+                <Icon name="plus" size={12} /> Adicionar sugestão
+              </button>
+            )}
+          </section>
+        ))}
+      </div>
+
+      {invalida && <p role="alert" style={{ fontSize: 12.5, color: "var(--danger)", marginTop: 12 }}>Cada causa precisa de pelo menos uma sugestão, e cada sugestão de pelo menos 5 caracteres.</p>}
+      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+        <button type="button" className="btn-primary" disabled={!mudou || invalida || salvando} onClick={salvar}>
+          <Icon name="floppy-disk" size={14} /> {salvando ? "Salvando..." : "Salvar matriz"}
+        </button>
+        {mudou && <button type="button" className="btn-ghost" onClick={() => setMatriz(JSON.parse(JSON.stringify(dados.matriz)))}>Descartar alterações</button>}
+        {dados.personalizada && <button type="button" className="btn-ghost" onClick={restaurar}><Icon name="rotate-left" size={13} /> Restaurar padrão</button>}
+      </div>
+    </Page>
+  );
+}
+
+const NIVEIS_ORDEM = [["ALTO", "alto"], ["MODERADO", "moderado"], ["BAIXO", "baixo"]];
+
+function BarraNiveis({ niveis, total }) {
+  return (
+    <div style={{ display: "flex", height: 10, borderRadius: 99, overflow: "hidden", background: "var(--border)" }} aria-hidden="true">
+      {NIVEIS_ORDEM.map(([k, l]) => niveis[k] > 0 && (
+        <div key={k} style={{ width: `${(niveis[k] / total) * 100}%`, background: RISCO_STYLE[l].cor }} />
+      ))}
+    </div>
+  );
+}
+
+function ChipAluno({ a, onAbrir }) {
+  const rs = RISCO_STYLE[a.nivel.toLowerCase()];
+  return (
+    <button type="button" onClick={() => onAbrir(a.id)} title={a.resumo}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${rs.border}`, background: rs.bg, color: "var(--text)", borderRadius: 99, padding: "4px 10px", fontSize: 13, cursor: "pointer" }}>
+      <span style={{ width: 8, height: 8, borderRadius: 99, background: rs.cor }} />
+      {a.nome}{a.turma && <span style={{ color: "var(--text-faint)", fontSize: 12 }}> · {a.turma}</span>}
+    </button>
+  );
+}
+
+/** Alunos de cada turma divididos por nível de risco. */
+function VisaoPorTurma({ analise, onAbrirAluno }) {
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      {analise.turmas.map((t) => (
+        <section key={t.turma} className="card" style={{ padding: 16 }} aria-label={`Turma ${t.turma}`}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+            <h2 style={{ fontSize: 16, margin: 0 }}>{t.turma}</h2>
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              {t.total} aluno(s) · {NIVEIS_ORDEM.map(([k, l]) => `${t.niveis[k]} ${l}`).join(" · ")}
+            </span>
+          </div>
+          <BarraNiveis niveis={t.niveis} total={t.total} />
+          {NIVEIS_ORDEM.map(([k, l]) => {
+            const lista = t.alunos.filter((a) => a.nivel === k);
+            if (lista.length === 0) return null;
+            return (
+              <div key={k} style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: RISCO_STYLE[l].cor, marginBottom: 6 }}>RISCO {l.toUpperCase()}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {lista.map((a) => <ChipAluno key={a.id} a={{ ...a, turma: null }} onAbrir={onAbrirAluno} />)}
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** Alunos de perfil parecido, o que têm em comum e as ações da matriz para o grupo. */
+function VisaoGrupos({ analise, onAbrirAluno }) {
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      {analise.reforcosEmGrupo.length > 0 && (
+        <section className="card" style={{ padding: 16, borderLeft: `3px solid ${TABS.nota.color}` }} aria-labelledby="reforco-grupo-titulo">
+          <h2 id="reforco-grupo-titulo" style={{ fontSize: 15, margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="people-group" size={15} color={TABS.nota.color} /> Assuntos para reforçar em grupo
+          </h2>
+          <p style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "0 0 10px" }}>Mais de um aluno com o mesmo assunto em baixa: dá para planejar uma aula de reforço conjunta.</p>
+          <div style={{ display: "grid", gap: 12 }}>
+            {analise.reforcosEmGrupo.map((r) => (
+              <div key={r.disciplina + r.assunto}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{r.assunto} <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>· {r.disciplina} · {r.alunos.length} alunos</span></div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0" }}>
+                  {r.alunos.map((a) => (
+                    <button key={a.id} type="button" onClick={() => onAbrirAluno(a.id)} className="btn-ghost" style={{ padding: "3px 10px", fontSize: 12.5 }}>
+                      {a.nome} · {a.turma} · nota {String(a.nota).replace(".", ",")}
+                    </button>
+                  ))}
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  {r.ensino.map((t, i) => <li key={i}>{t}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {analise.grupos.map((g) => (
+        <section key={g.chave} className="card" style={{ padding: 16 }} aria-label={`Grupo ${g.titulo}`}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+            <h2 style={{ fontSize: 16, margin: 0 }}>{g.titulo}</h2>
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{g.total} aluno(s)</span>
+            <span style={{ flex: 1 }} />
+            {NIVEIS_ORDEM.map(([k, l]) => g.niveis[k] > 0 && <Selo key={k} estilo={RISCO_STYLE[l]}>{g.niveis[k]} {l}</Selo>)}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {g.alunos.map((a) => <ChipAluno key={a.id} a={a} onAbrir={onAbrirAluno} />)}
+          </div>
+
+          {g.emComum.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>{g.total > 1 ? "O QUE TÊM EM COMUM" : "SITUAÇÃO"}</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.6 }}>
+                {g.emComum.map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {g.acoesDaMatriz.length > 0 && (
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
+                <Icon name="clipboard-list" size={12} /> Ações da matriz para este grupo
+              </summary>
+              <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                {g.acoesDaMatriz.map((a) => (
+                  <div key={a.causa}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>{a.titulo}</div>
+                    <ul style={{ margin: "2px 0 0", paddingLeft: 18, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                      {a.sugestoes.map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 /* ---------------------- LOGIN ---------------------- */
 
-function Login({ onEntrar, tema, onAlternarTema }) {
+function Login({ onEntrar, onCriarConta, tema, onAlternarTema }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -1176,14 +1427,213 @@ function Login({ onEntrar, tema, onAlternarTema }) {
             </p>
           )}
         </form>
+        <p style={{ textAlign: "center", fontSize: 13.5, color: "var(--text-muted)", marginTop: 16 }}>
+          É responsável e ainda não tem conta?{" "}
+          <button type="button" onClick={onCriarConta} style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 600, cursor: "pointer", padding: 0, font: "inherit" }}>
+            Criar conta de responsável
+          </button>
+        </p>
       </div>
     </main>
+  );
+}
+
+/* ---------------------- CADASTRO DA FAMÍLIA ---------------------- */
+
+/** Responsável cria a conta e já cadastra os filhos (1 ou mais), cada um com o orientador escolar. */
+function CadastroFamilia({ onCadastrado, onVoltar, tema, onAlternarTema }) {
+  const [orientadores, setOrientadores] = useState([]);
+  const [dados, setDados] = useState({ nome: "", email: "", telefone: "", senha: "" });
+  const novoFilho = () => ({ nome: "", turma: "", orientadorId: "" });
+  const [filhos, setFilhos] = useState([novoFilho()]);
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    api.get("/auth/orientadores").then((l) => {
+      setOrientadores(l);
+      if (l.length === 1) setFilhos((f) => f.map((x) => ({ ...x, orientadorId: x.orientadorId || l[0].id })));
+    }).catch(() => setOrientadores([]));
+  }, []);
+
+  const campo = (k) => ({ value: dados[k], onChange: (e) => setDados({ ...dados, [k]: e.target.value }) });
+  const mudarFilho = (i, k, v) => setFilhos((l) => l.map((f, j) => (j === i ? { ...f, [k]: v } : f)));
+  const incompleto = !dados.nome.trim() || !dados.email.trim() || !dados.telefone.trim() || dados.senha.length < 8
+    || filhos.some((f) => !f.nome.trim() || !f.turma.trim() || !f.orientadorId);
+
+  async function enviar(e) {
+    e.preventDefault();
+    if (incompleto || enviando) return;
+    setErro(""); setEnviando(true);
+    try {
+      const usuario = await api.cadastrar({ ...dados, filhos });
+      onCadastrado(usuario);
+    } catch (err) {
+      setErro(err.message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <main id="main-content" style={{ minHeight: "100vh", padding: "40px 20px", position: "relative" }}>
+      <button onClick={onAlternarTema} className="icon-btn" aria-label={tema === "claro" ? "Ativar modo escuro" : "Ativar modo claro"}
+        style={{ position: "absolute", top: 20, right: 20, color: "var(--text-muted)", borderColor: "var(--border-strong)" }}>
+        <Icon name={tema === "claro" ? "moon" : "sun"} size={15} />
+      </button>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <button type="button" className="btn-ghost" onClick={onVoltar} style={{ marginBottom: 16, padding: "6px 12px", fontSize: 13 }}>
+          <Icon name="arrow-left" size={13} /> Voltar para o login
+        </button>
+        <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, margin: "0 0 6px" }}>Criar conta de responsável</h1>
+        <p style={{ fontSize: 13.5, color: "var(--text-muted)", margin: "0 0 20px", lineHeight: 1.5 }}>
+          Cadastre-se e informe seus filhos. A orientação escolar confirma o vínculo antes de você ver os dados de cada um.
+        </p>
+
+        <form onSubmit={enviar} noValidate>
+          <section className="card" style={{ padding: 20 }} aria-labelledby="dados-resp">
+            <h2 id="dados-resp" style={{ fontSize: 15, margin: "0 0 12px" }}>Seus dados</h2>
+            <label className="field-label" htmlFor="cad-nome">Nome completo</label>
+            <input id="cad-nome" className="field" autoComplete="name" {...campo("nome")} />
+            <label className="field-label" htmlFor="cad-email" style={{ marginTop: 12 }}>E-mail</label>
+            <input id="cad-email" className="field" type="email" autoComplete="email" {...campo("email")} />
+            <label className="field-label" htmlFor="cad-tel" style={{ marginTop: 12 }}>Celular com WhatsApp</label>
+            <input id="cad-tel" className="field" type="tel" autoComplete="tel" placeholder="(92) 99123-4567" {...campo("telefone")} />
+            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "6px 0 0" }}>Se algum filho entrar em risco alto, a escola avisa por WhatsApp e e-mail.</p>
+            <label className="field-label" htmlFor="cad-senha" style={{ marginTop: 12 }}>Senha (mínimo 8 caracteres)</label>
+            <input id="cad-senha" className="field" type="password" autoComplete="new-password" {...campo("senha")} />
+          </section>
+
+          <section className="card" style={{ padding: 20, marginTop: 16 }} aria-labelledby="dados-filhos">
+            <h2 id="dados-filhos" style={{ fontSize: 15, margin: "0 0 12px" }}>Seus filhos</h2>
+            <div style={{ display: "grid", gap: 14 }}>
+              {filhos.map((f, i) => (
+                <fieldset key={i} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", margin: 0 }}>
+                  <legend style={{ fontSize: 13, fontWeight: 600, padding: "0 6px" }}>Filho(a) {i + 1}</legend>
+                  <label className="field-label" htmlFor={`filho-nome-${i}`}>Nome completo</label>
+                  <input id={`filho-nome-${i}`} className="field" value={f.nome} onChange={(e) => mudarFilho(i, "nome", e.target.value)} />
+                  <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 140px" }}>
+                      <label className="field-label" htmlFor={`filho-turma-${i}`}>Turma</label>
+                      <input id={`filho-turma-${i}`} className="field" placeholder="ex.: 7º ano A" value={f.turma} onChange={(e) => mudarFilho(i, "turma", e.target.value)} />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label className="field-label" htmlFor={`filho-orient-${i}`}>Orientador(a) escolar</label>
+                      <select id={`filho-orient-${i}`} className="field" value={f.orientadorId} onChange={(e) => mudarFilho(i, "orientadorId", e.target.value)}>
+                        <option value="">Escolha...</option>
+                        {orientadores.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  {filhos.length > 1 && (
+                    <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "5px 10px", fontSize: 12.5, color: "var(--danger)", borderColor: "var(--danger-border)" }}
+                      onClick={() => setFilhos((l) => l.filter((_, j) => j !== i))}>
+                      <Icon name="trash" size={11} /> Remover
+                    </button>
+                  )}
+                </fieldset>
+              ))}
+            </div>
+            {filhos.length < 10 && (
+              <button type="button" className="btn-ghost" style={{ marginTop: 12, padding: "7px 12px", fontSize: 13 }}
+                onClick={() => setFilhos((l) => [...l, { ...novoFilho(), orientadorId: orientadores.length === 1 ? orientadores[0].id : "" }])}>
+                <Icon name="plus" size={12} /> Adicionar outro filho
+              </button>
+            )}
+          </section>
+
+          {erro && <p role="alert" style={{ fontSize: 13, color: "var(--danger)", margin: "14px 0 0" }}><Icon name="circle-exclamation" size={13} style={{ marginRight: 6 }} />{erro}</p>}
+          <button type="submit" className="btn-primary" style={{ marginTop: 16, width: "100%", justifyContent: "center" }} disabled={incompleto || enviando} aria-busy={enviando}>
+            {enviando ? "Criando conta..." : <><Icon name="user-plus" size={14} /> Criar conta</>}
+          </button>
+          {incompleto && <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 8 }}>Preencha seus dados e os de cada filho para continuar.</p>}
+        </form>
+      </div>
+    </main>
+  );
+}
+
+/** Ficha (escola): aluno cadastrado pela família aguardando confirmação do vínculo. */
+function ConfirmarVinculo({ aluno, onDecidir }) {
+  const [recusando, setRecusando] = useState(false);
+  if (aluno.vinculoConfirmado) return null;
+  return (
+    <section className="card" role="region" aria-label="Confirmação de vínculo" style={{ padding: 16, marginBottom: 18, borderLeft: "3px solid var(--warning)" }}>
+      <p style={{ margin: 0, fontSize: 14 }}>
+        <Icon name="user-clock" size={14} color="var(--warning)" style={{ marginRight: 8 }} />
+        <strong>{aluno.nome}</strong> foi cadastrado(a) pela família ({aluno.responsavel}). Confirme se é seu aluno, da turma {aluno.turma}.
+      </p>
+      {!recusando ? (
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <button type="button" className="btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => onDecidir(true)}>
+            <Icon name="check" size={13} /> Confirmar vínculo
+          </button>
+          <button type="button" className="btn-ghost" style={{ padding: "7px 14px", fontSize: 13, color: "var(--danger)", borderColor: "var(--danger-border)" }} onClick={() => setRecusando(true)}>
+            Não é meu aluno
+          </button>
+        </div>
+      ) : (
+        <div style={{ marginTop: 12 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 8px" }}>O cadastro deste aluno será desfeito e a família será avisada para procurar a escola.</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn-primary" style={{ padding: "7px 14px", fontSize: 13, background: "var(--danger)" }} onClick={() => onDecidir(false)}>Recusar cadastro</button>
+            <button type="button" className="btn-ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => setRecusando(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const STATUS_ENVIO = {
+  ENVIADA: { label: "Enviada", cor: "var(--risco-baixo)", bg: "var(--risco-baixo-bg)", border: "var(--risco-baixo-border)" },
+  SIMULADA: { label: "Simulada", cor: "var(--text-muted)", bg: "transparent", border: "var(--border-strong)" },
+  FALHOU: { label: "Falhou", cor: "var(--risco-alto)", bg: "var(--risco-alto-bg)", border: "var(--risco-alto-border)" },
+  SEM_CONTATO: { label: "Sem contato", cor: "var(--risco-moderado)", bg: "var(--risco-moderado-bg)", border: "var(--risco-moderado-border)" },
+};
+
+/** Ficha (escola): WhatsApp e e-mails enviados à família por causa de risco alto. */
+function AvisosEnviados({ alunoId }) {
+  const [lista, setLista] = useState(null);
+  useEffect(() => { api.get(`/alunos/${alunoId}/mensagens`).then(setLista).catch(() => setLista([])); }, [alunoId]);
+  if (!lista || lista.length === 0) return null;
+  return (
+    <section className="card" style={{ padding: 16, marginBottom: 18 }} aria-labelledby="avisos-familia-titulo">
+      <h2 id="avisos-familia-titulo" style={{ fontSize: 14.5, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 }}>
+        <Icon name="paper-plane" size={14} color="var(--accent)" /> Avisos enviados à família
+      </h2>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {lista.map((m) => (
+          <li key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13.5 }}>
+            <Icon name={m.canal === "WHATSAPP" ? "comment-dots" : "envelope"} size={14} color={m.canal === "WHATSAPP" ? "#25A244" : "var(--accent)"} />
+            <strong>{m.canal === "WHATSAPP" ? "WhatsApp" : "E-mail"}</strong>
+            <span style={{ color: "var(--text-muted)" }}>{m.destino || "—"}</span>
+            <span style={{ color: "var(--text-faint)" }}>{formatarData(m.criadoEm.slice(0, 10))}</span>
+            <Selo estilo={STATUS_ENVIO[m.status]} />
+            {m.erro && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.erro}</span>}
+          </li>
+        ))}
+      </ul>
+      {lista.some((m) => m.status === "SIMULADA") && (
+        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 0" }}>
+          "Simulada": o canal ainda não tem credenciais configuradas. A mensagem foi gerada e registrada, mas não saiu.
+        </p>
+      )}
+    </section>
   );
 }
 
 /* ---------------------- ORIENTADOR: dashboard ---------------------- */
 
 function OrientadorDashboard({ alunos, avisos, onNovoAluno, onAbrirAluno }) {
+  const [aba, setAba] = useState("lista");
+  const [analise, setAnalise] = useState(null);
+  const [erroAnalise, setErroAnalise] = useState("");
+  useEffect(() => {
+    if (aba === "lista") return;
+    setErroAnalise("");
+    api.get("/painel/analise").then(setAnalise).catch((e) => setErroAnalise(e.message));
+  }, [aba, alunos]);
   const [busca, setBusca] = useState("");
   const [filtroRisco, setFiltroRisco] = useState("todos");
 
@@ -1212,7 +1662,25 @@ function OrientadorDashboard({ alunos, avisos, onNovoAluno, onAbrirAluno }) {
         </button>
       </div>
 
-      <ResumoTurma alunos={alunos} filtro={filtroRisco} onFiltrar={setFiltroRisco} />
+      <ResumoTurma alunos={alunos} filtro={filtroRisco} onFiltrar={(f) => { setFiltroRisco(f); setAba("lista"); }} />
+
+      <div className="tabs" role="tablist" aria-label="Visões do painel">
+        {[["lista", "Lista de alunos", "list"], ["turmas", "Por turma", "school"], ["grupos", "Grupos parecidos", "people-group"]].map(([k, l, ic]) => (
+          <button key={k} role="tab" aria-selected={aba === k} onClick={() => setAba(k)} className={aba === k ? "tab" : "tab is-inactive"}
+            style={{ background: aba === k ? "var(--accent)" : "transparent", color: aba === k ? "#fff" : "var(--text-muted)", borderColor: "var(--accent)" }}>
+            <Icon name={ic} size={13} /> {l}
+          </button>
+        ))}
+      </div>
+
+      {aba !== "lista" && (
+        erroAnalise ? <p role="alert" style={{ color: "var(--danger)" }}>{erroAnalise}</p>
+        : !analise ? <p style={{ color: "var(--text-muted)" }}>Carregando a análise da turma...</p>
+        : aba === "turmas" ? <VisaoPorTurma analise={analise} onAbrirAluno={onAbrirAluno} />
+        : <VisaoGrupos analise={analise} onAbrirAluno={onAbrirAluno} />
+      )}
+
+      {aba === "lista" && (<>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 200px" }}>
@@ -1249,6 +1717,7 @@ function OrientadorDashboard({ alunos, avisos, onNovoAluno, onAbrirAluno }) {
                     <div style={{ fontWeight: 600, fontSize: 15.5 }}>{aluno.nome}</div>
                     <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
                       {aluno.turma} · resp.: {aluno.responsavel}
+                      {!aluno.vinculoConfirmado && <> · <span style={{ color: "var(--warning)", fontWeight: 600 }}>novo cadastro: confirmar vínculo</span></>}
                       {aluno.planoStatus && aluno.risco.nivel !== "baixo" && <> · plano: <span style={{ color: STATUS_PLANO[aluno.planoStatus].cor, fontWeight: 600 }}>{STATUS_PLANO[aluno.planoStatus].label.toLowerCase()}</span></>}
                     </div>
                   </div>
@@ -1264,6 +1733,7 @@ function OrientadorDashboard({ alunos, avisos, onNovoAluno, onAbrirAluno }) {
           })}
         </ul>
       )}
+      </>)}
     </Page>
   );
 }
@@ -1329,7 +1799,7 @@ function CadastrarAluno({ onCancelar, onSalvar }) {
 
 /* ---------------------- ORIENTADOR: registrar indicador ---------------------- */
 
-function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusPlano }) {
+function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusPlano, onDecidirVinculo }) {
   const [tab, setTab] = useState("nota");
   const risco = classificarRisco(aluno);
   const rs = RISCO_STYLE[risco.nivel];
@@ -1343,7 +1813,9 @@ function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusP
         <span className="risk-badge" style={{ background: rs.bg, color: rs.cor, border: `1px solid ${rs.border}`, fontSize: 12, padding: "3px 10px" }}>{rs.label}</span>
       </div>
       <div style={{ marginBottom: 20 }}><ExplicacaoRisco risco={risco} /><EvolucaoRisco evolucao={aluno.evolucao} atual={aluno.risco.nivel} /></div>
+      <ConfirmarVinculo aluno={aluno} onDecidir={onDecidirVinculo} />
       <PlanoEFeedbacks aluno={aluno} onStatusPlano={onStatusPlano} />
+      <AvisosEnviados alunoId={aluno.id} />
       <ReforcoPorAssunto reforcos={aluno.reforcosAtuais} />
 
       <div className="tabs">
@@ -1744,6 +2216,12 @@ function PainelResponsavel({ aluno, avisos, filhos, onTrocarAluno, onVerPlano })
   return (
     <Page>
       {avisos}
+      {!aluno.vinculoConfirmado && (
+        <p role="status" className="card" style={{ padding: "12px 14px", fontSize: 13.5, borderLeft: "3px solid var(--warning)", margin: "0 0 18px" }}>
+          <Icon name="user-clock" size={13} color="var(--warning)" style={{ marginRight: 8 }} />
+          O cadastro de <strong>{aluno.nome}</strong> está aguardando a confirmação da orientação escolar. Enquanto isso, ainda não há registros da escola.
+        </p>
+      )}
       <div className="eyebrow">painel de risco</div>
       <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 22px" }}>
         Olá, {aluno.responsavel.split(" ")[0]}

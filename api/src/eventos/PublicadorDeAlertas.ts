@@ -7,6 +7,7 @@ export interface AlertaGerado {
   aluno: Aluno;
   plano: PlanoDeAcao | null;
   nivelAnterior: NivelRisco | null;
+  resumo: string; // frase do motor que explica o nível (ex.: 'Risco alto porque: ...')
 }
 
 /** Observador do padrão Observer (Eixo 2 §3.3): reage ao alerta sem o motor conhecê-lo. */

@@ -34,6 +34,6 @@ export class RegraOcorrencias implements RegraDeRisco {
 
     const n = ocorrencias.length;
     const resumo = `${n} ${n === 1 ? 'ocorrência' : 'ocorrências'} em ${this.p.janelaDias} dias${graves > 0 ? ` (${graves} ${graves === 1 ? 'grave' : 'graves'})` : ''}`;
-    return { regra: this.nome, causa: this.causa, regraNegocio: 'RN06', peso, evidencias, resumo };
+    return { regra: this.nome, causa: this.causa, regraNegocio: 'RN06', peso, evidencias, resumo, metricas: { ocorrencias: n, pontos, graves } };
   }
 }

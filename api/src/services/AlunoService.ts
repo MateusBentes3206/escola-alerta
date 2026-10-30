@@ -24,6 +24,7 @@ function paraDto(a: Aluno) {
     nome: a.nome,
     turma: a.turma,
     responsavel: a.responsavelId ? { id: a.responsavelId, nome: a.responsavelNome } : null,
+    vinculoConfirmado: a.vinculoConfirmado,
   };
 }
 
@@ -41,14 +42,21 @@ export class AlunoService {
    * responsável só vê os próprios filhos. Responde 404 (e não 403) para não revelar
    * se o aluno de outra conta existe.
    */
-  async obterComAcesso(usuario: TokenPayload, alunoId: string): Promise<Aluno> {
+  async obterComAcesso(usuario: TokenPayload, alunoId: string, { permitirNaoConfirmado = false } = {}): Promise<Aluno> {
     const aluno = uuid.safeParse(alunoId).success ? await this.alunos.buscarPorId(alunoId) : null;
     const temAcesso =
       aluno &&
       ((usuario.perfil === 'ORIENTADOR' && aluno.orientadorId === usuario.sub) ||
-        (usuario.perfil === 'RESPONSAVEL' && aluno.responsavelId === usuario.sub));
+        (usuario.perfil === 'RESPONSAVEL' && aluno.responsavelId === usuario.sub &&
+          // Cadastro feito pela família: até o orientador confirmar, a família não acessa os dados da escola.
+          (aluno.vinculoConfirmado || permitirNaoConfirmado)));
     if (!aluno || !temAcesso) throw new AppError(404, 'Aluno não encontrado.');
     return aluno;
+  }
+
+  /** Responsável com vínculo ainda não confirmado: vê só o nome e a turma, sem nenhum dado da escola. */
+  private ocultoParaFamilia(usuario: TokenPayload, aluno: Aluno) {
+    return usuario.perfil === 'RESPONSAVEL' && !aluno.vinculoConfirmado;
   }
 
   /** Lista com o risco calculado na hora (o motor é barato: roda em memória sobre o histórico). */
@@ -65,6 +73,9 @@ export class AlunoService {
         const plano = ultimo ? await this.alertas.statusDoPlano(ultimo.id) : null;
         // Lista de atenção: risco moderado/alto cujo plano ainda não foi resolvido pela escola.
         const atencao = nivel !== 'BAIXO' && plano?.status !== 'RESOLVIDO';
+        if (this.ocultoParaFamilia(usuario, a)) {
+          return { ...paraDto(a), risco: { nivel: 'BAIXO', causaRaiz: null, correlacao: false, resumo: '' }, planoStatus: null, atencao: false };
+        }
         return { ...paraDto(a), risco: { nivel, causaRaiz, correlacao, resumo }, planoStatus: plano?.status ?? null, atencao };
       }),
     );
@@ -72,7 +83,13 @@ export class AlunoService {
 
   /** Tudo o que as telas do aluno precisam numa chamada só. */
   async detalhe(usuario: TokenPayload, alunoId: string) {
-    const aluno = await this.obterComAcesso(usuario, alunoId);
+    const aluno = await this.obterComAcesso(usuario, alunoId, { permitirNaoConfirmado: true });
+    if (this.ocultoParaFamilia(usuario, aluno)) {
+      return {
+        ...paraDto(aluno), indicadores: [], risco: this.motor.classificar([]), reforcosAtuais: [],
+        planoAtual: null, feedbacks: [], evolucao: [],
+      };
+    }
     const [indicadores, evolucao, feedbacks] = await Promise.all([
       this.indicadores.listarPorAluno(aluno.id),
       this.alertas.listarPorAluno(aluno.id),

@@ -2,7 +2,7 @@
 
 API REST do EscolaAlerta (TCC FAMETRO), em camadas **Controller → Service → Repository → PostgreSQL**, com os três padrões do documento de Arquitetura: **Strategy** (motor de regras), **Repository** (acesso a dados) e **Observer** (intervenção orientada).
 
-**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola. A suíte tem 114 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
+**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola, matriz de sugestões editável, painel por turma e por grupos parecidos, aviso de risco alto por WhatsApp e e-mail e cadastro do responsável com os filhos. A suíte tem 147 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
 
 ---
 
@@ -41,10 +41,20 @@ Ou, da raiz do repositório, `./iniciar.sh` faz tudo isso e ainda sobe o front.
 
 | Perfil | E-mail | Aluno (situação inicial) |
 |---|---|---|
-| Orientador | camila.duarte@escola.com.br | os três abaixo |
-| Responsável | beatriz.lima@email.com | Rafael: **alto** (notas + faltas, com correlação) |
+| Orientador | camila.duarte@escola.com.br | os 18 alunos, em 4 turmas (6º A, 7º A, 8º B, 9º C) |
+| Responsável | beatriz.lima@email.com | Rafael: **alto** (notas + faltas, com correlação) e Vinícius: **alto** (ocorrência grave) |
 | Responsável | marcos.souza@email.com | Ana: **baixo** |
 | Responsável | sandra.matos@email.com | Diego: **moderado** (ocorrência moderada) |
+| Responsável | paulo.ferreira@email.com | Lucas (faltas) e Thiago (notas + faltas) |
+| Responsável | luciana.alves@email.com | Pedro (3 dias seguidos de falta) e Isabela (sem sinais) |
+| Responsável | fernanda.rocha@email.com | Júlia (faltas) e Mateus (nota 3,8 em Português) |
+| Responsável | roberto.nunes@email.com | Gabriel (notas) e Sofia (saídas antecipadas) |
+| Responsável | carla.mendes@email.com | Larissa (Matemática em queda) |
+| Responsável | marta.costa@email.com | Helena (Matemática e Português abaixo de 6) |
+| Responsável | ricardo.carvalho@email.com | Enzo (2 ocorrências leves) e Felipe (1 falta) |
+| Responsável | patricia.santos@email.com | Kaio (faltas + ocorrência, com correlação) e Marina (sem sinais) |
+
+Os perfis foram escolhidos para o painel ter grupos parecidos de verdade. Por exemplo, Rafael, Gabriel e Larissa, todos do 8º B, estão com Equações do 1º grau baixa.
 
 As datas do histórico de demonstração são relativas ao dia do seed, então os alunos não "saem" da janela de 30 dias do motor. Para recomeçar a demonstração do zero: `npm run db:reset`.
 
@@ -138,6 +148,32 @@ Nenhum caso de risco alto foi classificado como baixo, que é o erro mais grave.
 
   Só pode haver um pedido em aberto por aluno. Cada mudança gera um aviso para o outro lado, e uma transição fora da tabela responde **409**.
 
+### Aviso de risco alto por WhatsApp e e-mail
+
+Quando o aluno **entra** em risco alto, mais dois observadores (padrão Observer) avisam o responsável fora do app: `AvisoExternoDeRiscoAlto` com o `CanalWhatsApp` e com o `CanalEmail`. Eles não repetem o aviso enquanto o aluno continuar em risco alto, para não virar spam.
+
+- **Conteúdo mínimo (LGPD):** nome do aluno, turma, nível, principal motivo e link do sistema. Notas e detalhes ficam só dentro do sistema, atrás do login.
+- **Registro de envio:** cada mensagem fica gravada em `mensagens_externas` com status ENVIADA, SIMULADA, FALHOU ou SEM_CONTATO. A ficha do aluno mostra "Avisos enviados à família", com o contato mascarado, por exemplo `(92) 9****-0001`.
+- **E-mail:** SMTP padrão. Em desenvolvimento, o `docker compose` sobe o **Mailpit**: os e-mails são enviados de verdade e aparecem em **http://localhost:8025**, sem sair para a internet. Para produção, troque `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `EMAIL_REMETENTE` no `.env` (por exemplo, pelo SMTP do Resend). O e-mail padrão do Supabase não serve: ele é só para e-mails de autenticação e tem limite baixo.
+- **WhatsApp:** usa a API oficial do WhatsApp Business (Meta Cloud API). Sem `WHATSAPP_TOKEN` e `WHATSAPP_PHONE_NUMBER_ID` no `.env`, fica em **simulação**: a mensagem é gerada e registrada, mas não sai. Para a escola iniciar a conversa, a Meta exige um modelo aprovado (`WHATSAPP_TEMPLATE`), que recebe os parâmetros nome do responsável, aluno, turma, motivo e link.
+- Os telefones do seed (`+55 92 90000-xxxx`) são de uma faixa sem celulares atribuídos, e os e-mails só chegam ao Mailpit. Antes de ligar credenciais reais, troque esses contatos por contatos de teste seus.
+
+### Cadastro do responsável com os filhos
+
+Na tela de login, "Criar conta de responsável" abre o formulário com nome, e-mail, **celular com WhatsApp** e senha, mais **um ou mais filhos**, cada um com nome, turma e **orientador escolar**.
+
+- A conta e os filhos são gravados numa transação só (`POST /auth/cadastro`), e o responsável já entra logado.
+- **Vínculo a confirmar:** qualquer pessoa pode criar uma conta, então o filho entra **aguardando confirmação**. O orientador recebe um aviso e, na ficha do aluno, confirma ou recusa (`PATCH /alunos/:id/vinculo`). Até a confirmação, a família **não vê nenhum dado da escola** sobre aquele aluno e não recebe avisos de risco. Se o orientador recusar, o cadastro do filho é desfeito e a família é avisada.
+- O celular é validado e guardado no formato internacional (`+5592991234567`). Telefone fixo é recusado, porque o aviso vai por WhatsApp.
+
+### Matriz editável e painel da turma
+
+- **Matriz de sugestões** (`GET/PUT/DELETE /matriz`): o orientador edita as ações do plano por causa (frequência, notas, ocorrências, saídas), de 1 a 6 por causa. Os **planos novos** usam a matriz da escola; os **planos já gerados não mudam**, porque as sugestões ficam copiadas no alerta e o histórico continua confiável. "Restaurar padrão" volta à matriz do sistema.
+- **Painel da turma** (`GET /painel/analise`), só leitura. O fluxo de alertas continua o mesmo:
+  - **Por turma:** quantos alunos de cada turma estão em cada nível de risco.
+  - **Grupos parecidos:** alunos com o mesmo **perfil de risco**, ou seja, o mesmo conjunto de causas com sinal moderado ou alto (por exemplo "Frequência + Notas"). Quem só tem sinais fracos vai para "Sinais leves de atenção", e quem não tem sinal, para "Sem sinais". Cada grupo mostra **o que os alunos têm em comum**: turma, disciplinas e assuntos em baixa, média de faltas, ocorrências, correlação e planos ainda abertos. Mostra também as **ações da matriz** para as causas do grupo, para o orientador comparar e escolher o que usar com cada aluno.
+  - **Assuntos para reforçar em grupo:** o mesmo assunto em baixa em dois ou mais alunos (por exemplo, Equações do 1º grau no 8º B), com as recomendações de ensino. Dá para planejar uma aula de reforço conjunta.
+
 ## Endpoints
 
 | Método | Rota | Perfil | Descrição |
@@ -163,6 +199,12 @@ Nenhum caso de risco alto foi classificado como baixo, que é o erro mais grave.
 | GET | `/responsaveis` | orientador | Lista para o vínculo no cadastro |
 | GET | `/notificacoes` | qualquer | Avisos gerados pelos observadores |
 | PATCH | `/notificacoes/:id/lida` | dono | Marca o aviso como lido |
+| GET / PUT / DELETE | `/matriz` | orientador | Lê, salva ou restaura a matriz de sugestões da escola |
+| GET | `/painel/analise` | orientador | Alunos por turma, grupos de perfil parecido e assuntos para reforço em grupo |
+| GET | `/alunos/:id/mensagens` | orientador | WhatsApp e e-mails enviados à família, com contato mascarado |
+| GET | `/auth/orientadores` | — | Orientadores para o formulário de cadastro (só id e nome) |
+| POST | `/auth/cadastro` | — | Responsável + filhos: `{ nome, email, senha, telefone, filhos: [{ nome, turma, orientadorId }] }` → `{ token, usuario }` |
+| PATCH | `/alunos/:id/vinculo` | orientador | `{ confirmar: true \| false }` para filho cadastrado pela família |
 
 "Dono" significa: o orientador que cadastrou o aluno, ou o responsável vinculado a ele. Para qualquer outra conta, a resposta é **404**, para não revelar que o aluno existe (ST04).
 
@@ -188,7 +230,7 @@ Se usar outra porta, inclua a origem em `FRONT_URL` no `.env` e reinicie a API.
 ## Estrutura
 
 ```
-migrations/          SQL versionado (001 = tabelas do diagrama de classes, 002 = ajustes do motor, 003 = assunto e reforço, 004 = status do plano e agendamento)
+migrations/          SQL versionado (001 = tabelas do diagrama de classes, 002 = ajustes do motor, 003 = assunto e reforço, 004 = status do plano e agendamento, 005 = matriz editável, 006 = telefone, mensagens externas e vínculo confirmado)
 scripts/             migrate e seed via linha de comando
 avaliacao/           cenários simulados + matriz de confusão do motor (RNF04)
 src/
@@ -229,6 +271,9 @@ tests/
 | IT01, IT02, IT05, IT06, IT07, ST04 | `tests/integration/fluxo-risco.test.ts` | Aprovado |
 | IT03, IT04 | `tests/integration/auth.test.ts` | Aprovado |
 | Status do plano e agendamento | `tests/integration/agendamento-e-plano.test.ts` | Aprovado |
+| Matriz editável | `tests/integration/matriz.test.ts` | Aprovado |
+| Painel por turma e grupos | `tests/integration/painel-analise.test.ts` | Aprovado |
+| Aviso externo e cadastro da família | `tests/integration/familia-e-avisos.test.ts`, `tests/unit/contato.test.ts` | Aprovado |
 | RNF04 | `tests/unit/precisao-motor.test.ts` + `npm run avaliar:motor` | Aprovado (97,4%) |
 | ST01–ST03 | Roteiro manual na interface (ver README da raiz) | Pendente de execução roteirizada |
 | ST05 | Mobile/web via Flutter | Fora do escopo do protótipo React |

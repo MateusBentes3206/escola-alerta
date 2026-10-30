@@ -5,4 +5,5 @@ export interface Aluno {
   orientadorId: string;
   responsavelId: string | null;
   responsavelNome: string | null;
+  vinculoConfirmado: boolean; // false = cadastrado pela família, aguardando o orientador confirmar
 }

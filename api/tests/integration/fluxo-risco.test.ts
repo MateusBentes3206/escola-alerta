@@ -47,11 +47,12 @@ afterAll(async () => {
 });
 
 describe('Seed avaliado pelo motor', () => {
-  it('o orientador vê os 3 alunos com o risco calculado (Rafael alto, Diego moderado, Ana baixo)', async () => {
+  it('o orientador vê os 18 alunos com o risco calculado (Rafael alto, Diego moderado, Ana baixo)', async () => {
     const res = await request(app).get('/alunos').set(como(ORIENTADORA));
     expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(18);
     const nivel = Object.fromEntries(res.body.map((a: { nome: string; risco: { nivel: string } }) => [a.nome.split(' ')[0], a.risco.nivel]));
-    expect(nivel).toEqual({ Ana: 'BAIXO', Diego: 'MODERADO', Rafael: 'ALTO' });
+    expect(nivel).toMatchObject({ Ana: 'BAIXO', Diego: 'MODERADO', Rafael: 'ALTO' });
   });
 
   it('o detalhe do Rafael explica o risco (sinais, evidências, plano com sugestões)', async () => {

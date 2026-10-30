@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../config/db';
-import { alertaService, alunoService, indicadorService, motor, notificacaoRepository, publicador, solicitacaoService } from '../container';
+import { mascararContato } from '../domain/mascara';
+import { alertaService, alunoService, analiseTurmaService, cadastroFamiliaService, indicadorService, matrizService, mensagensExternas, motor, notificacaoRepository, publicador, solicitacaoService } from '../container';
 import { AlertaController, AlunoController, IndicadorController, SolicitacaoController } from '../controllers/AlunoController';
 import { AppError } from '../errors/AppError';
 import { autenticar, exigirPerfil } from '../middlewares/auth';
@@ -25,6 +26,8 @@ routes.get('/', (_req, res) => {
       'POST /alunos/:id/indicadores', 'PATCH /indicadores/:id', 'DELETE /indicadores/:id',
       'GET /alertas/:alunoId', 'POST /alertas/:id/feedback', 'PATCH /alertas/:id/plano', 'GET /responsaveis',
       'POST /alunos/:id/solicitacoes', 'GET /solicitacoes?status=&alunoId=', 'PATCH /solicitacoes/:id',
+      'GET /matriz', 'PUT /matriz', 'DELETE /matriz', 'GET /painel/analise', 'GET /alunos/:id/mensagens',
+      'POST /auth/cadastro', 'GET /auth/orientadores', 'PATCH /alunos/:id/vinculo',
       'GET /notificacoes', 'PATCH /notificacoes/:id/lida',
     ],
   });
@@ -64,6 +67,36 @@ routes.patch('/alertas/:id/plano', autenticar, exigirPerfil('ORIENTADOR'), alert
 routes.post('/alunos/:id/solicitacoes', autenticar, exigirPerfil('RESPONSAVEL'), solicitacoes.criar);
 routes.get('/solicitacoes', autenticar, solicitacoes.listar);
 routes.patch('/solicitacoes/:id', autenticar, solicitacoes.responder);
+
+// Matriz de sugestões do plano de ação, editável pela escola (vale para planos novos).
+routes.get('/matriz', autenticar, exigirPerfil('ORIENTADOR'), async (req, res) => {
+  res.json(await matrizService.obter(req.usuario!));
+});
+routes.put('/matriz', autenticar, exigirPerfil('ORIENTADOR'), async (req, res) => {
+  res.json(await matrizService.salvar(req.usuario!, req.body));
+});
+routes.delete('/matriz', autenticar, exigirPerfil('ORIENTADOR'), async (req, res) => {
+  res.json(await matrizService.restaurarPadrao(req.usuario!));
+});
+
+// Cadastro feito pela família: o orientador confirma ou recusa o vínculo do aluno.
+routes.patch('/alunos/:id/vinculo', autenticar, exigirPerfil('ORIENTADOR'), async (req, res) => {
+  const confirmar = req.body?.confirmar;
+  if (typeof confirmar !== 'boolean') throw new AppError(400, 'Informe confirmar: true ou false.');
+  res.json(await cadastroFamiliaService.decidirVinculo(req.usuario!.sub, String(req.params.id), confirmar));
+});
+
+// Avisos enviados à família fora do app (e-mail, WhatsApp), com contato mascarado (LGPD).
+routes.get('/alunos/:id/mensagens', autenticar, exigirPerfil('ORIENTADOR'), async (req, res) => {
+  const aluno = await alunoService.obterComAcesso(req.usuario!, String(req.params.id));
+  const lista = await mensagensExternas.listarPorAluno(aluno.id);
+  res.json(lista.map((m) => ({ ...m, destino: mascararContato(m.destino) })));
+});
+
+// Painel do orientador: alunos por turma, grupos de perfil parecido e assuntos para reforço em grupo.
+routes.get('/painel/analise', autenticar, exigirPerfil('ORIENTADOR'), async (req, res) => {
+  res.json(await analiseTurmaService.analisar(req.usuario!));
+});
 
 // Notificações gravadas pelos observadores
 routes.get('/notificacoes', autenticar, async (req, res) => {
