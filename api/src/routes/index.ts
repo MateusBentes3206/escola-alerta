@@ -86,7 +86,7 @@ routes.patch('/alunos/:id/vinculo', autenticar, exigirPerfil('ORIENTADOR'), asyn
   res.json(await cadastroFamiliaService.decidirVinculo(req.usuario!.sub, String(req.params.id), confirmar));
 });
 
-// Avisos enviados à família fora do app (e-mail, WhatsApp), com contato mascarado (LGPD).
+// Avisos enviados à família por e-mail, com contato mascarado (LGPD).
 routes.get('/alunos/:id/mensagens', autenticar, exigirPerfil('ORIENTADOR'), async (req, res) => {
   const aluno = await alunoService.obterComAcesso(req.usuario!, String(req.params.id));
   const lista = await mensagensExternas.listarPorAluno(aluno.id);

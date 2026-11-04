@@ -6,7 +6,7 @@ export interface Usuario {
   email: string;
   senhaHash: string;
   perfil: Perfil;
-  telefone?: string | null; // WhatsApp do responsável, formato +55DDDNÚMERO
+  telefone?: string | null; // celular de contato do responsável (opcional), formato +55DDDNÚMERO
 }
 
 /** O que pode sair da API: nunca inclui o hash da senha. */

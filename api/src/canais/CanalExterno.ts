@@ -1,19 +1,19 @@
-export type TipoCanal = 'EMAIL' | 'WHATSAPP';
+export type TipoCanal = 'EMAIL';
 
-/** Resultado de um envio: ENVIADA (saiu de verdade) ou SIMULADA (canal sem credenciais configuradas). */
+/** Resultado de um envio: ENVIADA (saiu de verdade) ou SIMULADA (e-mail sem servidor SMTP configurado). */
 export type ResultadoEnvio = 'ENVIADA' | 'SIMULADA';
 
 export interface MensagemExterna {
-  destino: string;   // e-mail ou telefone +55...
-  assunto: string;   // usado no e-mail
+  destino: string;   // endereço de e-mail
+  assunto: string;
   texto: string;
   nomeDestinatario: string;
-  variaveis: string[]; // parâmetros do modelo do WhatsApp (nome do aluno, nível, motivo, link)
 }
 
 /**
- * Canal de comunicação fora do app. Cada implementação esconde o provedor (SMTP, API da Meta):
- * o resto do sistema só conhece esta interface. Sem credenciais, o canal funciona em simulação.
+ * Canal de comunicação fora do app. A implementação esconde o provedor (SMTP): o resto do sistema
+ * só conhece esta interface. Um canal novo no futuro (SMS, WhatsApp) é só mais uma implementação
+ * inscrita como observador, sem mexer no motor. Sem credenciais, o canal funciona em simulação.
  */
 export interface CanalExterno {
   readonly tipo: TipoCanal;

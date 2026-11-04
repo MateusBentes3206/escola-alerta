@@ -41,7 +41,7 @@ Tudo na interface usa a API e o banco: alunos, indicadores, risco calculado pelo
    Ainda no plano, clique em **"Agendar conversa com o orientador"**, sugira 2 horários e envie.
 6. Volte como **Camila**: o feedback do Marcos aparece nos avisos e na ficha da Ana, em **"Plano de ação e feedbacks"**, com o plano já "em andamento". Em **Solicitações** (no topo, com contador), confirme um horário ou proponha outro.
 7. Na ficha da Ana, clique em **"Marcar como resolvido"**: a Ana sai da lista de atenção, e o Marcos é avisado.
-8. Na ficha do Rafael, mostre **"Avisos enviados à família"** (e-mail enviado, WhatsApp simulado) e abra o e-mail em http://localhost:8025.
+8. Na ficha do Rafael, mostre **"Avisos enviados à família"** (o e-mail enviado) e abra o e-mail em http://localhost:8025.
 9. Saia e clique em **"Criar conta de responsável"**: cadastre-se com dois filhos. Entre como Camila e confirme o vínculo na ficha do aluno novo.
 10. Entre como **Beatriz**: o Rafael está em risco alto por **correlação** entre notas e faltas. A frase-resumo cita as regras (RN04, RN05 e RN06), e o plano manda reforçar Equações do 1º grau (Matemática) e Concordância verbal (Português).
 
@@ -65,7 +65,7 @@ Detalhes, endpoints e decisões de segurança: [`api/README.md`](api/README.md).
 ## Testes
 
 ```bash
-cd api && npm test            # 147 testes: unitários, integração e controle de acesso
+cd api && npm test            # 149 testes: unitários, integração e controle de acesso
 cd api && npm run avaliar:motor   # matriz de confusão do motor (RNF04: 97,4% de acerto)
 ```
 

@@ -165,7 +165,7 @@ const ALUNOS_SEED: { nome: string; turma: string; responsavel: string; indicador
 ];
 
 /**
- * Contatos reais para a demonstração ao vivo (e-mail e WhatsApp chegando de verdade).
+ * Contatos reais para a demonstração ao vivo (e-mail chegando de verdade).
  * Ficam em api/contatos-demo.local.json, que o git ignora: dado real nunca vai para o repositório (LGPD).
  * Nunca é usado nos testes automáticos.
  *  - cenario "nota":  filho com Matemática 5,0; uma nota vermelha em OUTRA disciplina leva a risco alto.

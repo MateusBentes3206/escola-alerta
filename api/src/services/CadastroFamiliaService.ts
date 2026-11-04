@@ -12,7 +12,7 @@ import { gerarToken } from './token';
 export function normalizarCelular(entrada: string): string | null {
   let d = entrada.replace(/\D/g, '');
   if (d.length === 13 && d.startsWith('55')) d = d.slice(2);
-  // DDD de 11 a 99 + celular de 9 dígitos começando com 9 (WhatsApp precisa de celular)
+  // DDD de 11 a 99 + celular de 9 dígitos começando com 9
   if (!/^[1-9][1-9]9\d{8}$/.test(d)) return null;
   return `+55${d}`;
 }
@@ -23,10 +23,12 @@ export const cadastroFamiliaSchema = z.object({
   nome: z.string({ error: 'Informe seu nome completo.' }).trim().min(3, 'Informe seu nome completo.').max(120),
   email: z.string({ error: 'Informe um e-mail válido.' }).trim().toLowerCase().email('Informe um e-mail válido.'),
   senha: z.string({ error: 'Crie uma senha.' }).min(8, 'A senha precisa ter pelo menos 8 caracteres.').max(72),
-  telefone: z.string({ error: MSG_CELULAR }).transform((t, ctx) => {
+  // Celular de contato: opcional; se vier, precisa ser um celular válido com DDD.
+  telefone: z.string().nullish().transform((t, ctx) => {
+    if (!t || !t.trim()) return null;
     const n = normalizarCelular(t);
     if (!n) ctx.addIssue({ code: 'custom', message: MSG_CELULAR });
-    return n ?? '';
+    return n;
   }),
   filhos: z.array(z.object({
     nome: z.string({ error: 'Informe o nome completo do filho.' }).trim().min(3, 'Informe o nome completo do filho.').max(120),

@@ -5,7 +5,7 @@ import { rodarMigrations } from '../../src/database/migrator';
 import { rodarSeed, SENHA_PADRAO_SEED } from '../../src/database/seed';
 import { hojeIso, somarDias } from '../../src/motor/datas';
 
-// Aviso de risco alto por WhatsApp e e-mail, e cadastro do responsável com os filhos.
+// Aviso de risco alto por e-mail, e cadastro do responsável com os filhos.
 
 const tokens: Record<string, string> = {};
 const ORIENTADORA = 'camila.duarte@escola.com.br';
@@ -34,14 +34,11 @@ afterAll(async () => {
 });
 
 describe('Aviso externo quando o aluno entra em risco alto', () => {
-  it('o risco alto do Rafael gerou WhatsApp e e-mail para a mãe (simulados no ambiente de teste)', async () => {
+  it('o risco alto do Rafael gerou um e-mail para a mãe (simulado no ambiente de teste)', async () => {
     const { rows } = await mensagens(await id('Rafael'));
-    expect(rows.map((r) => [r.canal, r.destino, r.status])).toEqual([
-      ['EMAIL', 'beatriz.lima@email.com', 'SIMULADA'],
-      ['WHATSAPP', '+5592900000001', 'SIMULADA'],
-    ]);
+    expect(rows.map((r) => [r.canal, r.destino, r.status])).toEqual([['EMAIL', 'beatriz.lima@email.com', 'SIMULADA']]);
     expect(rows[0].conteudo).toMatch(/Rafael \(8º ano B\) está com risco ALTO/);
-    expect(rows[0].conteudo).not.toMatch(/5,2|Matemática/); // LGPD: sem notas na mensagem externa
+    expect(rows[0].conteudo).not.toMatch(/5,2|Matemática/); // LGPD: sem notas no e-mail
   });
 
   it('risco moderado não manda aviso externo', async () => {
@@ -52,23 +49,15 @@ describe('Aviso externo quando o aluno entra em risco alto', () => {
     const lucas = await id('Lucas'); // 4 faltas: moderado
     expect((await mensagens(lucas)).rows).toEqual([]);
     await request(app).post(`/alunos/${lucas}/indicadores`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data: diaLetivoAntes(12) });
-    expect((await mensagens(lucas)).rows.map((r) => r.canal)).toEqual(['EMAIL', 'WHATSAPP']);
+    expect((await mensagens(lucas)).rows.map((r) => r.canal)).toEqual(['EMAIL']);
 
     await request(app).post(`/alunos/${lucas}/indicadores`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data: diaLetivoAntes(16) });
-    expect((await mensagens(lucas)).rows).toHaveLength(2);
-  });
-
-  it('responsável sem celular cadastrado: o WhatsApp fica registrado como SEM_CONTATO', async () => {
-    await pool.query("UPDATE usuarios SET telefone = NULL WHERE email = 'fernanda.rocha@email.com'");
-    const julia = await id('Júlia'); // 3 faltas: moderado
-    for (const d of [8, 15]) await request(app).post(`/alunos/${julia}/indicadores`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data: diaLetivoAntes(d) });
-    const { rows } = await mensagens(julia);
-    expect(rows.map((r) => [r.canal, r.status])).toEqual([['EMAIL', 'SIMULADA'], ['WHATSAPP', 'SEM_CONTATO']]);
+    expect((await mensagens(lucas)).rows).toHaveLength(1);
   });
 
   it('a escola vê os avisos enviados com o contato mascarado; a família não acessa essa rota', async () => {
     const res = await request(app).get(`/alunos/${await id('Rafael')}/mensagens`).set(como(ORIENTADORA));
-    expect(res.body.map((m: { destino: string }) => m.destino).sort()).toEqual(['(92) 9****-0001', 'b***********@email.com']);
+    expect(res.body.map((m: { destino: string }) => m.destino)).toEqual(['b***********@email.com']);
     expect((await request(app).get(`/alunos/${await id('Rafael')}/mensagens`).set(como('beatriz.lima@email.com'))).status).toBe(403);
   });
 });
@@ -93,7 +82,7 @@ describe('Cadastro do responsável com os filhos', () => {
 
   it('valida celular, filhos e orientador', async () => {
     const enviar = (extra: object) => request(app).post('/auth/cadastro').send(cadastro(extra));
-    expect((await enviar({ telefone: '(92) 3232-1234' })).body.erro).toBe('Informe um celular com DDD, por exemplo (92) 99123-4567.');
+    expect((await enviar({ telefone: '(92) 3232-1234' })).body.erro).toBe('Informe um celular com DDD, por exemplo (92) 99123-4567.'); // se informar, tem que ser válido
     expect((await enviar({ filhos: [] })).body.erro).toBe('Cadastre pelo menos um filho.');
     expect((await enviar({ senha: '123' })).body.erro).toBe('A senha precisa ter pelo menos 8 caracteres.');
     const outro = '00000000-0000-4000-8000-000000000000';
@@ -125,6 +114,12 @@ describe('Cadastro do responsável com os filhos', () => {
     expect(avisos).not.toMatch(/Caio está com risco/);
     // a escola vê normalmente
     expect((await request(app).get(`/alunos/${caio}`).set(como(ORIENTADORA))).body.risco.nivel).toBe('ALTO');
+  });
+
+  it('o celular é opcional', async () => {
+    const res = await request(app).post('/auth/cadastro').send({ ...cadastro({ telefone: '' }), email: 'sem.celular@email.com', filhos: [{ nome: 'Rui Teste', turma: '6º ano A', orientadorId }] });
+    expect(res.status).toBe(201);
+    expect(res.body.usuario.telefone).toBeNull();
   });
 
   it('e-mail já usado -> 409', async () => {

@@ -4,7 +4,7 @@ export interface NovaFamilia {
   nome: string;
   email: string;
   senhaHash: string;
-  telefone: string;
+  telefone: string | null;
   filhos: { nome: string; turma: string; orientadorId: string }[];
 }
 

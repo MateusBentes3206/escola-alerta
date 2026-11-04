@@ -1,5 +1,4 @@
 import { CanalEmail } from './canais/CanalEmail';
-import { CanalWhatsApp } from './canais/CanalWhatsApp';
 import { pool } from './config/db';
 import { AvisoExternoDeRiscoAlto } from './eventos/observadores/AvisoExternoDeRiscoAlto';
 import { NotificarOrientador, NotificarResponsavel } from './eventos/observadores/NotificacaoObservers';
@@ -47,8 +46,7 @@ const gerador = new GeradorDePlanoDeAcao();
 export const publicador = new PublicadorDeAlertas()
   .inscrever(new NotificarResponsavel(notificacoes))
   .inscrever(new NotificarOrientador(notificacoes))
-  // Risco alto: avisa a família fora do app (sem credenciais, os canais ficam em simulação e só registram)
-  .inscrever(new AvisoExternoDeRiscoAlto(new CanalWhatsApp(), usuarios, mensagensExternas))
+  // Risco alto: avisa a família por e-mail (sem SMTP configurado, fica em simulação e só registra)
   .inscrever(new AvisoExternoDeRiscoAlto(new CanalEmail(), usuarios, mensagensExternas));
 
 // Services

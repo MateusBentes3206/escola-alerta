@@ -2,7 +2,7 @@
 
 API REST do EscolaAlerta (TCC FAMETRO), em camadas **Controller → Service → Repository → PostgreSQL**, com os três padrões do documento de Arquitetura: **Strategy** (motor de regras), **Repository** (acesso a dados) e **Observer** (intervenção orientada).
 
-**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola, matriz de sugestões editável, painel por turma e por grupos parecidos, aviso de risco alto por WhatsApp e e-mail e cadastro do responsável com os filhos. A suíte tem 147 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
+**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola, matriz de sugestões editável, painel por turma e por grupos parecidos, aviso de risco alto por e-mail e cadastro do responsável com os filhos. A suíte tem 149 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
 
 ---
 
@@ -148,23 +148,22 @@ Nenhum caso de risco alto foi classificado como baixo, que é o erro mais grave.
 
   Só pode haver um pedido em aberto por aluno. Cada mudança gera um aviso para o outro lado, e uma transição fora da tabela responde **409**.
 
-### Aviso de risco alto por WhatsApp e e-mail
+### Aviso de risco alto por e-mail
 
-Quando o aluno **entra** em risco alto, mais dois observadores (padrão Observer) avisam o responsável fora do app: `AvisoExternoDeRiscoAlto` com o `CanalWhatsApp` e com o `CanalEmail`. Eles não repetem o aviso enquanto o aluno continuar em risco alto, para não virar spam.
+Quando o aluno **entra** em risco alto, mais um observador (padrão Observer) avisa o responsável fora do app: `AvisoExternoDeRiscoAlto` com o `CanalEmail`. Ele não repete o aviso enquanto o aluno continuar em risco alto, para não virar spam.
 
 - **Conteúdo mínimo (LGPD):** nome do aluno, turma, nível, principal motivo e link do sistema. Notas e detalhes ficam só dentro do sistema, atrás do login.
-- **Registro de envio:** cada mensagem fica gravada em `mensagens_externas` com status ENVIADA, SIMULADA, FALHOU ou SEM_CONTATO. A ficha do aluno mostra "Avisos enviados à família", com o contato mascarado, por exemplo `(92) 9****-0001`.
-- **E-mail:** SMTP padrão. Em desenvolvimento, o `docker compose` sobe o **Mailpit**: os e-mails são enviados de verdade e aparecem em **http://localhost:8025**, sem sair para a internet. Para produção, troque `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `EMAIL_REMETENTE` no `.env` (por exemplo, pelo SMTP do Resend). O e-mail padrão do Supabase não serve: ele é só para e-mails de autenticação e tem limite baixo.
-- **WhatsApp:** usa a API oficial do WhatsApp Business (Meta Cloud API). Sem `WHATSAPP_TOKEN` e `WHATSAPP_PHONE_NUMBER_ID` no `.env`, fica em **simulação**: a mensagem é gerada e registrada, mas não sai. Para a escola iniciar a conversa, a Meta exige um modelo aprovado (`WHATSAPP_TEMPLATE`), que recebe os parâmetros nome do responsável, aluno, turma, motivo e link.
-- Os telefones do seed (`+55 92 90000-xxxx`) são de uma faixa sem celulares atribuídos, e os e-mails só chegam ao Mailpit. Antes de ligar credenciais reais, troque esses contatos por contatos de teste seus.
+- **Registro de envio:** cada e-mail fica gravado em `mensagens_externas` com status ENVIADA, SIMULADA, FALHOU ou SEM_CONTATO. A ficha do aluno mostra "Avisos enviados à família", com o endereço mascarado (por exemplo `b***********@email.com`).
+- **E-mail:** SMTP padrão. Em desenvolvimento, o `docker compose` sobe o **Mailpit**: os e-mails são enviados de verdade e aparecem em **http://localhost:8025**, sem sair para a internet. Para mandar para caixas reais, troque `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `EMAIL_REMETENTE` no `.env`, por exemplo pelo Gmail com senha de app (`smtp.gmail.com`, porta 465) ou pelo SMTP do Resend. Para conferir: `npm run testar:avisos -- --para alguem@gmail.com`. O e-mail padrão do Supabase não serve: ele é só para e-mails de autenticação e tem limite baixo.
+- **Por que não WhatsApp:** a API oficial do WhatsApp Business (Meta) exige cadastro e aprovação na Meta e cobra por mensagem num número próprio. As alternativas sem a API (automação do WhatsApp Web) violam os termos do WhatsApp e arriscam banir o número. Fica como trabalho futuro: pelo padrão Observer, um canal novo é só mais uma classe inscrita, sem mexer no motor.
 
 ### Cadastro do responsável com os filhos
 
-Na tela de login, "Criar conta de responsável" abre o formulário com nome, e-mail, **celular com WhatsApp** e senha, mais **um ou mais filhos**, cada um com nome, turma e **orientador escolar**.
+Na tela de login, "Criar conta de responsável" abre o formulário com nome, e-mail, senha e celular (opcional), mais **um ou mais filhos**, cada um com nome, turma e **orientador escolar**.
 
 - A conta e os filhos são gravados numa transação só (`POST /auth/cadastro`), e o responsável já entra logado.
 - **Vínculo a confirmar:** qualquer pessoa pode criar uma conta, então o filho entra **aguardando confirmação**. O orientador recebe um aviso e, na ficha do aluno, confirma ou recusa (`PATCH /alunos/:id/vinculo`). Até a confirmação, a família **não vê nenhum dado da escola** sobre aquele aluno e não recebe avisos de risco. Se o orientador recusar, o cadastro do filho é desfeito e a família é avisada.
-- O celular é validado e guardado no formato internacional (`+5592991234567`). Telefone fixo é recusado, porque o aviso vai por WhatsApp.
+- O celular é opcional, só para contato. Se for informado, é validado e guardado no formato internacional (`+5592991234567`).
 
 ### Matriz editável e painel da turma
 
@@ -201,7 +200,7 @@ Na tela de login, "Criar conta de responsável" abre o formulário com nome, e-m
 | PATCH | `/notificacoes/:id/lida` | dono | Marca o aviso como lido |
 | GET / PUT / DELETE | `/matriz` | orientador | Lê, salva ou restaura a matriz de sugestões da escola |
 | GET | `/painel/analise` | orientador | Alunos por turma, grupos de perfil parecido e assuntos para reforço em grupo |
-| GET | `/alunos/:id/mensagens` | orientador | WhatsApp e e-mails enviados à família, com contato mascarado |
+| GET | `/alunos/:id/mensagens` | orientador | E-mails de aviso enviados à família, com endereço mascarado |
 | GET | `/auth/orientadores` | — | Orientadores para o formulário de cadastro (só id e nome) |
 | POST | `/auth/cadastro` | — | Responsável + filhos: `{ nome, email, senha, telefone, filhos: [{ nome, turma, orientadorId }] }` → `{ token, usuario }` |
 | PATCH | `/alunos/:id/vinculo` | orientador | `{ confirmar: true \| false }` para filho cadastrado pela família |

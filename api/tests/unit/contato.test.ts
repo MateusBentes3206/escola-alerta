@@ -24,3 +24,21 @@ describe('Máscara de contato (LGPD)', () => {
     expect(mascararEmail('beatriz.lima@email.com')).toBe('b***********@email.com');
   });
 });
+
+import { textoParaFamilia } from '../../src/domain/mensagemFamilia';
+
+describe('Mensagem para a família', () => {
+  const base = { responsavelNome: 'Beatriz Lima', alunoNome: 'Rafael Costa Lima', turma: '8º ano B', link: 'http://escola' };
+
+  it('risco alto ou moderado: nível, motivo e link, sem notas (LGPD)', () => {
+    const t = textoParaFamilia({ ...base, nivel: 'ALTO', causa: 'NOTAS' });
+    expect(t).toMatch(/^Olá, Beatriz\./);
+    expect(t).toMatch(/Rafael \(8º ano B\) está com risco ALTO no acompanhamento escolar\. Principal motivo: notas\./);
+    expect(t).toContain('http://escola');
+    expect(textoParaFamilia({ ...base, nivel: 'MODERADO', causa: 'FALTAS' })).toMatch(/risco MODERADO.*frequência/s);
+  });
+
+  it('sem risco: convite geral para conversar', () => {
+    expect(textoParaFamilia({ ...base, nivel: 'BAIXO', causa: null })).toMatch(/Gostaríamos de conversar sobre o acompanhamento de Rafael/);
+  });
+});

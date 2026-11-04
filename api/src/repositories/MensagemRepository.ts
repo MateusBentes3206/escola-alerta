@@ -36,4 +36,5 @@ export class PgMensagemRepository implements IMensagemRepository {
     }>('SELECT id, canal, destino, assunto, conteudo, status, erro, criado_em FROM mensagens_externas WHERE aluno_id = $1 ORDER BY criado_em DESC', [alunoId]);
     return rows.map((r) => ({ id: r.id, canal: r.canal, destino: r.destino, assunto: r.assunto, conteudo: r.conteudo, status: r.status, erro: r.erro, criadoEm: r.criado_em.toISOString() }));
   }
+
 }

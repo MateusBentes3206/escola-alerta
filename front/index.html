@@ -1458,7 +1458,7 @@ function CadastroFamilia({ onCadastrado, onVoltar, tema, onAlternarTema }) {
 
   const campo = (k) => ({ value: dados[k], onChange: (e) => setDados({ ...dados, [k]: e.target.value }) });
   const mudarFilho = (i, k, v) => setFilhos((l) => l.map((f, j) => (j === i ? { ...f, [k]: v } : f)));
-  const incompleto = !dados.nome.trim() || !dados.email.trim() || !dados.telefone.trim() || dados.senha.length < 8
+  const incompleto = !dados.nome.trim() || !dados.email.trim() || dados.senha.length < 8
     || filhos.some((f) => !f.nome.trim() || !f.turma.trim() || !f.orientadorId);
 
   async function enviar(e) {
@@ -1497,9 +1497,9 @@ function CadastroFamilia({ onCadastrado, onVoltar, tema, onAlternarTema }) {
             <input id="cad-nome" className="field" autoComplete="name" {...campo("nome")} />
             <label className="field-label" htmlFor="cad-email" style={{ marginTop: 12 }}>E-mail</label>
             <input id="cad-email" className="field" type="email" autoComplete="email" {...campo("email")} />
-            <label className="field-label" htmlFor="cad-tel" style={{ marginTop: 12 }}>Celular com WhatsApp</label>
+            <label className="field-label" htmlFor="cad-tel" style={{ marginTop: 12 }}>Celular (opcional)</label>
             <input id="cad-tel" className="field" type="tel" autoComplete="tel" placeholder="(92) 99123-4567" {...campo("telefone")} />
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "6px 0 0" }}>Se algum filho entrar em risco alto, a escola avisa por WhatsApp e e-mail.</p>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "6px 0 0" }}>Se algum filho entrar em risco alto, a escola avisa pelo seu e-mail.</p>
             <label className="field-label" htmlFor="cad-senha" style={{ marginTop: 12 }}>Senha (mínimo 8 caracteres)</label>
             <input id="cad-senha" className="field" type="password" autoComplete="new-password" {...campo("senha")} />
           </section>
@@ -1586,13 +1586,13 @@ function ConfirmarVinculo({ aluno, onDecidir }) {
 }
 
 const STATUS_ENVIO = {
-  ENVIADA: { label: "Enviada", cor: "var(--risco-baixo)", bg: "var(--risco-baixo-bg)", border: "var(--risco-baixo-border)" },
-  SIMULADA: { label: "Simulada", cor: "var(--text-muted)", bg: "transparent", border: "var(--border-strong)" },
+  ENVIADA: { label: "Enviado", cor: "var(--risco-baixo)", bg: "var(--risco-baixo-bg)", border: "var(--risco-baixo-border)" },
+  SIMULADA: { label: "Simulado", cor: "var(--text-muted)", bg: "transparent", border: "var(--border-strong)" },
   FALHOU: { label: "Falhou", cor: "var(--risco-alto)", bg: "var(--risco-alto-bg)", border: "var(--risco-alto-border)" },
   SEM_CONTATO: { label: "Sem contato", cor: "var(--risco-moderado)", bg: "var(--risco-moderado-bg)", border: "var(--risco-moderado-border)" },
 };
 
-/** Ficha (escola): WhatsApp e e-mails enviados à família por causa de risco alto. */
+/** Ficha (escola): e-mails de aviso de risco alto enviados à família. */
 function AvisosEnviados({ alunoId }) {
   const [lista, setLista] = useState(null);
   useEffect(() => { api.get(`/alunos/${alunoId}/mensagens`).then(setLista).catch(() => setLista([])); }, [alunoId]);
@@ -1600,13 +1600,12 @@ function AvisosEnviados({ alunoId }) {
   return (
     <section className="card" style={{ padding: 16, marginBottom: 18 }} aria-labelledby="avisos-familia-titulo">
       <h2 id="avisos-familia-titulo" style={{ fontSize: 14.5, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 }}>
-        <Icon name="paper-plane" size={14} color="var(--accent)" /> Avisos enviados à família
+        <Icon name="envelope" size={14} color="var(--accent)" /> Avisos enviados à família
       </h2>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {lista.map((m) => (
           <li key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13.5 }}>
-            <Icon name={m.canal === "WHATSAPP" ? "comment-dots" : "envelope"} size={14} color={m.canal === "WHATSAPP" ? "#25A244" : "var(--accent)"} />
-            <strong>{m.canal === "WHATSAPP" ? "WhatsApp" : "E-mail"}</strong>
+            <strong>E-mail</strong>
             <span style={{ color: "var(--text-muted)" }}>{m.destino || "—"}</span>
             <span style={{ color: "var(--text-faint)" }}>{formatarData(m.criadoEm.slice(0, 10))}</span>
             <Selo estilo={STATUS_ENVIO[m.status]} />
@@ -1616,7 +1615,7 @@ function AvisosEnviados({ alunoId }) {
       </ul>
       {lista.some((m) => m.status === "SIMULADA") && (
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0 0" }}>
-          "Simulada": o canal ainda não tem credenciais configuradas. A mensagem foi gerada e registrada, mas não saiu.
+          "Simulado": o servidor de e-mail ainda não foi configurado. A mensagem foi gerada e registrada, mas não saiu.
         </p>
       )}
     </section>
