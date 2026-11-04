@@ -189,7 +189,7 @@
 <div id="root"></div>
 
 <script type="text/babel" data-presets="react">
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 
 /* ---------------------------------------------------------
    EscolaAlerta — Protótipo de front-end (MVP)
@@ -366,9 +366,16 @@ function App() {
   }, []);
 
   // Toda alteração de indicador volta com o risco recalculado e, se mudou, o alerta gerado.
-  async function alterarIndicador(requisicao, mensagem) {
+  // Uma alteração de cada vez: clique repetido enquanto salva é ignorado (evita registro duplicado).
+  const salvandoRef = useRef(false);
+  const [salvandoIndicador, setSalvandoIndicador] = useState(false);
+
+  async function alterarIndicador(fazerRequisicao, mensagem) {
+    if (salvandoRef.current) return;
+    salvandoRef.current = true;
+    setSalvandoIndicador(true);
     try {
-      const resultado = await requisicao;
+      const resultado = await fazerRequisicao();
       await abrirAluno(aluno.id);
       carregarAlunos();
       carregarNotificacoes();
@@ -378,6 +385,9 @@ function App() {
         : `${mensagem} Risco recalculado pelo motor de regras.`);
     } catch (e) {
       falhou(e);
+    } finally {
+      salvandoRef.current = false;
+      setSalvandoIndicador(false);
     }
   }
 
@@ -498,13 +508,14 @@ function App() {
           aluno={aluno}
           onStatusPlano={mudarStatusPlano}
           onDecidirVinculo={decidirVinculo}
+          salvando={salvandoIndicador}
           onRegistrar={(tipo, dados) =>
-            alterarIndicador(api.post(`/alunos/${aluno.id}/indicadores`, indicadorParaApi(tipo, dados)), "Indicador registrado.")}
+            alterarIndicador(() => api.post(`/alunos/${aluno.id}/indicadores`, indicadorParaApi(tipo, dados)), "Indicador registrado.")}
           onExcluir={(tipo, indicadorId) =>
-            alterarIndicador(api.del(`/indicadores/${indicadorId}`), "Registro excluído.")}
+            alterarIndicador(() => api.del(`/indicadores/${indicadorId}`), "Registro excluído.")}
           onEditar={(tipo, indicadorId, novosDados) => {
             const original = aluno[CAMPO_POR_TIPO[tipo]].find((item) => item.id === indicadorId);
-            alterarIndicador(api.patch(`/indicadores/${indicadorId}`, indicadorParaApi(tipo, { ...original, ...novosDados })), "Registro atualizado.");
+            alterarIndicador(() => api.patch(`/indicadores/${indicadorId}`, indicadorParaApi(tipo, { ...original, ...novosDados })), "Registro atualizado.");
           }}
         />
       )}
@@ -1798,7 +1809,7 @@ function CadastrarAluno({ onCancelar, onSalvar }) {
 
 /* ---------------------- ORIENTADOR: registrar indicador ---------------------- */
 
-function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusPlano, onDecidirVinculo }) {
+function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusPlano, onDecidirVinculo, salvando }) {
   const [tab, setTab] = useState("nota");
   const risco = classificarRisco(aluno);
   const rs = RISCO_STYLE[risco.nivel];
@@ -1831,11 +1842,15 @@ function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusP
         })}
       </div>
 
-      <div className="card" style={{ padding: 20, borderTop: `3px solid ${TABS[tab].color}` }}>
+      <div className="card" style={{ padding: 20, borderTop: `3px solid ${TABS[tab].color}` }} aria-busy={salvando}>
+        {/* fieldset desabilitado bloqueia todos os campos e o botão enquanto o registro é salvo */}
+        <fieldset disabled={salvando} style={{ border: "none", margin: 0, padding: 0, minWidth: 0, opacity: salvando ? 0.6 : 1 }}>
         {tab === "nota" && <FormNota onSalvar={(d) => onRegistrar("nota", d)} />}
         {tab === "falta" && <FormFalta onSalvar={(d) => onRegistrar("falta", d)} />}
         {tab === "ocorrencia" && <FormOcorrencia onSalvar={(d) => onRegistrar("ocorrencia", d)} />}
         {tab === "saida" && <FormSaida onSalvar={(d) => onRegistrar("saida", d)} />}
+        </fieldset>
+        {salvando && <p role="status" style={{ fontSize: 12.5, color: "var(--text-muted)", margin: "10px 0 0" }}><Icon name="spinner" size={12} style={{ animation: "fa-spin 1s linear infinite", marginRight: 6 }} />Salvando e recalculando o risco...</p>}
       </div>
 
       <HistoricoIndicadores aluno={aluno} onEditar={onEditar} onExcluir={onExcluir} />

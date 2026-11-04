@@ -233,6 +233,23 @@ describe('Editar e excluir indicadores reavalia o risco', () => {
     expect(familia.body[0].mensagem).toMatch(/Boa notícia/);
   });
 
+  it('não aceita duas faltas do mesmo aluno no mesmo dia (registrar ou editar) -> 409', async () => {
+    const data = somarDias(hojeIso(), -29); // dias que nenhum outro teste usa
+    const primeira = await request(app).post(`/alunos/${novoAlunoId}/indicadores`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data });
+    expect(primeira.status).toBe(201);
+    const repetida = await request(app).post(`/alunos/${novoAlunoId}/indicadores`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data });
+    expect(repetida.status).toBe(409);
+    expect(repetida.body.erro).toBe('Já existe uma falta registrada para este aluno neste dia.');
+
+    const outra = await request(app).post(`/alunos/${novoAlunoId}/indicadores`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data: somarDias(hojeIso(), -28) });
+    expect(outra.status).toBe(201);
+    const mover = await request(app).patch(`/indicadores/${outra.body.indicador.id}`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data });
+    expect(mover.status).toBe(409);
+    // editar a própria falta sem mudar o dia continua permitido
+    const mesma = await request(app).patch(`/indicadores/${outra.body.indicador.id}`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data: somarDias(hojeIso(), -28), justificada: true });
+    expect(mesma.status).toBe(200);
+  });
+
   it('não permite trocar o tipo de um indicador', async () => {
     const { body: notas } = await request(app).get(`/alunos/${novoAlunoId}/indicadores?tipo=NOTA`).set(como(ORIENTADORA));
     const res = await request(app).patch(`/indicadores/${notas[0].id}`).set(como(ORIENTADORA)).send({ tipo: 'FALTA', data: hojeIso() });

@@ -1,11 +1,13 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { env } from '../config/env';
 import { CanalExterno, MensagemExterna } from './CanalExterno';
+import { enderecosPermitidos } from './listaDeEnvioPermitido';
 
 /** E-mail via SMTP. Em desenvolvimento usa o Mailpit (docker compose): os e-mails aparecem em http://localhost:8025. */
 export class CanalEmail implements CanalExterno {
   readonly tipo = 'EMAIL' as const;
   private readonly transporte: Transporter | null;
+  private readonly permitidos = enderecosPermitidos();
 
   constructor(private readonly config = env.smtp) {
     this.transporte = config.host
@@ -25,6 +27,8 @@ export class CanalEmail implements CanalExterno {
 
   async enviar(m: MensagemExterna) {
     if (!this.transporte) return 'SIMULADA' as const;
+    // Demonstração: fora da lista permitida, não envia de verdade (ver listaDeEnvioPermitido.ts).
+    if (this.permitidos && !this.permitidos.has(m.destino.toLowerCase())) return 'SIMULADA' as const;
     await this.transporte.sendMail({
       from: this.config.remetente,
       to: `"${m.nomeDestinatario}" <${m.destino}>`,

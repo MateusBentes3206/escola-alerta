@@ -81,7 +81,9 @@ export class IndicadorService {
 
   async registrar(usuario: TokenPayload, alunoId: string, body: unknown) {
     const aluno = await this.alunos.obterComAcesso(usuario, alunoId);
-    const indicador = await this.indicadores.criar(aluno.id, normalizar(indicadorSchema.parse(body)), usuario.sub);
+    const dados = normalizar(indicadorSchema.parse(body));
+    await this.impedirFaltaRepetida(aluno.id, dados);
+    const indicador = await this.indicadores.criar(aluno.id, dados, usuario.sub);
     return { indicador, ...(await this.resultadoDoRisco(aluno.id)) };
   }
 
@@ -89,6 +91,7 @@ export class IndicadorService {
     const atual = await this.obterComAcesso(usuario, indicadorId);
     const dados = normalizar(indicadorSchema.parse(body));
     if (dados.tipo !== atual.tipo) throw new AppError(400, 'Não é possível mudar o tipo de um indicador. Exclua e registre de novo.');
+    await this.impedirFaltaRepetida(atual.alunoId, dados, atual.id);
     const indicador = await this.indicadores.atualizar(atual.id, dados);
     return { indicador, ...(await this.resultadoDoRisco(atual.alunoId)) };
   }
@@ -104,6 +107,15 @@ export class IndicadorService {
     if (!indicador) throw new AppError(404, 'Indicador não encontrado.');
     await this.alunos.obterComAcesso(usuario, indicador.alunoId); // 404 se o aluno não for deste usuário
     return indicador;
+  }
+
+  /** Um aluno tem no máximo uma falta por dia: evita falta duplicada (ex.: clique repetido no botão). */
+  private async impedirFaltaRepetida(alunoId: string, dados: DadosIndicador, ignorarId?: string) {
+    if (dados.tipo !== 'FALTA') return;
+    const faltas = await this.indicadores.listarPorAluno(alunoId, 'FALTA');
+    if (faltas.some((f) => f.data === dados.data && f.id !== ignorarId)) {
+      throw new AppError(409, 'Já existe uma falta registrada para este aluno neste dia.');
+    }
   }
 
   private async resultadoDoRisco(alunoId: string) {
