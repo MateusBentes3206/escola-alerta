@@ -330,6 +330,7 @@ function alunoDaApi(a) {
       : null,
     feedbacks: a.feedbacks.map((f) => ({ id: f.id, status: f.status, observacao: f.observacao, data: formatarData(f.criadoEm.slice(0, 10)) })),
     evolucao: a.evolucao,
+    linhaDoTempo: a.linhaDoTempo,
     reforcosAtuais: a.reforcosAtuais || [],
   };
 }
@@ -733,44 +734,47 @@ function Avisos({ notificacoes, onMarcarLida }) {
   );
 }
 
-/** Histórico de evolução do risco (RF08): cada mudança de nível gravada pelo motor. */
-/** Histórico de evolução do risco (RF08): gráfico em degraus, um ponto por alerta gravado pelo motor. */
-function EvolucaoRisco({ evolucao, atual }) {
-  if (!evolucao || evolucao.length === 0) return null;
+/** Evolução do risco (RF08): o motor recalcula o nível semana a semana a partir dos registros do aluno. */
+function EvolucaoRisco({ linhaDoTempo }) {
+  if (!linhaDoTempo || linhaDoTempo.length < 2) return null;
   const Y = { ALTO: 18, MODERADO: 52, BAIXO: 86 };
   const COR = { ALTO: "var(--risco-alto)", MODERADO: "var(--risco-moderado)", BAIXO: "var(--risco-baixo)" };
-  const pontos = evolucao.map((e) => ({ t: new Date(e.criadoEm).getTime(), nivel: e.nivel, rotulo: formatarData(e.criadoEm.slice(0, 10)), e }));
-  const hoje = { t: Math.max(Date.now(), pontos[pontos.length - 1].t + 1), nivel: (atual || pontos[pontos.length - 1].nivel).toUpperCase(), rotulo: "hoje" };
-  const todos = [...pontos, hoje];
-  const t0 = todos[0].t, t1 = todos[todos.length - 1].t;
   const X0 = 78, X1 = 580;
-  const x = (t) => (t1 === t0 ? X0 : X0 + ((t - t0) / (t1 - t0)) * (X1 - X0));
-  // degraus: o nível vale até o próximo alerta
-  let d = `M ${x(todos[0].t)} ${Y[todos[0].nivel]}`;
-  for (let i = 1; i < todos.length; i++) d += ` H ${x(todos[i].t)} V ${Y[todos[i].nivel]}`;
+  const ultimo = linhaDoTempo.length - 1;
+  const pontos = linhaDoTempo.map((p, i) => ({
+    ...p, x: X0 + (i / ultimo) * (X1 - X0), y: Y[p.nivel], rotulo: i === ultimo ? "hoje" : formatarData(p.data).slice(0, 5),
+  }));
+  // Curva suave entre as semanas; a tangente plana em cada ponto evita passar além do nível real.
+  const curva = pontos.slice(1).reduce((d, p, i) => {
+    const a = pontos[i], meio = (a.x + p.x) / 2;
+    return `${d} C ${meio} ${a.y}, ${meio} ${p.y}, ${p.x} ${p.y}`;
+  }, `M ${pontos[0].x} ${pontos[0].y}`);
+  const mudou = (p, i) => i === 0 || i === ultimo || p.nivel !== pontos[i - 1].nivel;
+  const rotulados = [0, Math.round(ultimo / 3), Math.round((2 * ultimo) / 3), ultimo];
 
   return (
     <figure style={{ margin: "12px 0 0" }}>
       <figcaption style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-        <Icon name="chart-line" size={12} /> Evolução do risco
+        <Icon name="chart-line" size={12} /> Evolução do risco, semana a semana
       </figcaption>
       <div style={{ overflowX: "auto" }}>
         <svg viewBox="0 0 600 112" style={{ width: "100%", minWidth: 360, height: "auto", display: "block" }} role="img"
-          aria-label={`Evolução do risco: ${todos.map((p) => `${p.rotulo} ${NIVEL_LABEL[p.nivel]}`).join(", ")}`}>
+          aria-label={`Evolução do risco: ${pontos.filter(mudou).map((p) => `${p.rotulo} ${NIVEL_LABEL[p.nivel]}`).join(", ")}`}>
           {Object.entries(Y).map(([nivel, y]) => (
             <g key={nivel}>
               <line x1={X0} x2={X1} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 4" />
               <text x={X0 - 10} y={y + 4} textAnchor="end" fontSize="11" fill={COR[nivel]} fontWeight="600">{NIVEL_LABEL[nivel]}</text>
             </g>
           ))}
-          <path d={d} fill="none" stroke="var(--text-muted)" strokeWidth="2" />
-          {todos.map((p, i) => (
-            <g key={i}>
-              <circle cx={x(p.t)} cy={Y[p.nivel]} r={p.rotulo === "hoje" ? 4 : 5.5} fill={COR[p.nivel]} stroke="var(--surface)" strokeWidth="2">
-                {p.e && <title>{`${p.rotulo}: risco ${NIVEL_LABEL[p.nivel]}${p.e.regraOrigem ? ` (${p.e.regraOrigem}${p.e.correlacao ? ", correlação" : ""})` : ""}`}</title>}
-              </circle>
-              <text x={x(p.t)} y={108} textAnchor={i === 0 ? "start" : i === todos.length - 1 ? "end" : "middle"} fontSize="10.5" fill="var(--text-faint)">{p.rotulo}</text>
-            </g>
+          <path d={`${curva} L ${X1} 94 L ${X0} 94 Z`} fill="var(--accent)" opacity="0.08" />
+          <path d={curva} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
+          {pontos.map((p, i) => mudou(p, i) && (
+            <circle key={p.data} cx={p.x} cy={p.y} r={i === ultimo ? 5.5 : 4.5} fill={COR[p.nivel]} stroke="var(--surface)" strokeWidth="2">
+              <title>{`${formatarData(p.data)}: risco ${NIVEL_LABEL[p.nivel]}`}</title>
+            </circle>
+          ))}
+          {[...new Set(rotulados)].map((i) => (
+            <text key={i} x={pontos[i].x} y={108} textAnchor={i === 0 ? "start" : i === ultimo ? "end" : "middle"} fontSize="10.5" fill="var(--text-faint)">{pontos[i].rotulo}</text>
           ))}
         </svg>
       </div>
@@ -1918,7 +1922,7 @@ function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusP
         <span style={{ fontSize: 13.5, color: "var(--text-muted)" }}>{aluno.turma}</span>
         <span className="risk-badge" style={{ background: rs.bg, color: rs.cor, border: `1px solid ${rs.border}`, fontSize: 12, padding: "3px 10px" }}>{rs.label}</span>
       </div>
-      <div style={{ marginBottom: 20 }}><ExplicacaoRisco risco={risco} /><EvolucaoRisco evolucao={aluno.evolucao} atual={aluno.risco.nivel} /></div>
+      <div style={{ marginBottom: 20 }}><ExplicacaoRisco risco={risco} /><EvolucaoRisco linhaDoTempo={aluno.linhaDoTempo} /></div>
       <ConfirmarVinculo aluno={aluno} onDecidir={onDecidirVinculo} />
       <PlanoEFeedbacks aluno={aluno} onStatusPlano={onStatusPlano} />
       <AvisosEnviados alunoId={aluno.id} />
@@ -2379,7 +2383,7 @@ function PainelResponsavel({ aluno, avisos, filhos, onTrocarAluno, onVerPlano })
           <div className="contador"><strong>{aluno.ocorrencias.length}</strong><span>ocorrências</span></div>
         </div>
         <ExplicacaoRisco risco={classificarRisco(aluno)} />
-        <EvolucaoRisco evolucao={aluno.evolucao} atual={aluno.risco.nivel} />
+        <EvolucaoRisco linhaDoTempo={aluno.linhaDoTempo} />
       </div>
 
       {!aluno.planoAcao && aluno.reforcosAtuais.length > 0 && (

@@ -35,6 +35,11 @@ export interface Classificacao {
   dataReferencia: string;  // AAAA-MM-DD
 }
 
+export interface PontoDaLinhaDoTempo {
+  data: string;  // AAAA-MM-DD
+  nivel: NivelRisco;
+}
+
 export type TipoSugestao = 'ACAO' | 'REFORCO' | 'ENSINO' | 'FAMILIA';
 
 export interface Sugestao {

@@ -61,7 +61,7 @@ describe('Seed avaliado pelo motor', () => {
     expect(res.body.risco).toMatchObject({ nivel: 'ALTO', causaRaiz: 'NOTAS', correlacao: true });
     expect(res.body.risco.sinais.map((s: { regra: string }) => s.regra)).toEqual(expect.arrayContaining(['RegraNotas', 'RegraFaltas']));
     expect(res.body.planoAtual.sugestoes.length).toBeGreaterThanOrEqual(3);
-    expect(res.body.indicadores.length).toBe(8);
+    expect(res.body.indicadores.length).toBe(12);
   });
 
   it('o plano do Rafael diz o que reforçar (disciplina + assunto) e como ensinar', async () => {
@@ -228,6 +228,7 @@ describe('Editar e excluir indicadores reavalia o risco', () => {
     expect(detalhe.body.risco.nivel).toBe('BAIXO');
     expect(detalhe.body.planoAtual).toBeNull();
     expect(detalhe.body.evolucao.map((a: { nivel: string }) => a.nivel)).toEqual(['MODERADO', 'ALTO', 'MODERADO', 'BAIXO']);
+    expect(detalhe.body.linhaDoTempo[detalhe.body.linhaDoTempo.length - 1].nivel).toBe('BAIXO');
 
     const familia = await request(app).get('/notificacoes').set(como(BEATRIZ));
     expect(familia.body[0].mensagem).toMatch(/Boa notícia/);

@@ -87,7 +87,7 @@ export class AlunoService {
     if (this.ocultoParaFamilia(usuario, aluno)) {
       return {
         ...paraDto(aluno), indicadores: [], risco: this.motor.classificar([]), reforcosAtuais: [],
-        planoAtual: null, feedbacks: [], evolucao: [],
+        planoAtual: null, feedbacks: [], evolucao: [], linhaDoTempo: [],
       };
     }
     const [indicadores, evolucao, feedbacks] = await Promise.all([
@@ -126,6 +126,7 @@ export class AlunoService {
       planoAtual,
       feedbacks,
       evolucao: evolucao.map(({ id, nivel, causaRaiz, regraOrigem, correlacao, criadoEm }) => ({ id, nivel, causaRaiz, regraOrigem, correlacao, criadoEm })),
+      linhaDoTempo: this.motor.linhaDoTempo(indicadores),
     };
   }
 

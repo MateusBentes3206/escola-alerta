@@ -1,6 +1,6 @@
 import { Indicador } from '../domain/indicador';
-import { Classificacao, NivelRisco, SinalDeRisco } from '../domain/risco';
-import { hojeIso } from './datas';
+import { Classificacao, NivelRisco, PontoDaLinhaDoTempo, SinalDeRisco } from '../domain/risco';
+import { hojeIso, somarDias } from './datas';
 import { PARAMETROS_PADRAO, ParametrosMotor } from './parametros';
 import { RegraDeRisco } from './RegraDeRisco';
 import { RegraFaltas } from './regras/RegraFaltas';
@@ -51,6 +51,22 @@ export class MotorDeRegras {
 
   get nomesDasRegras(): string[] {
     return this.regras.map((r) => r.nome);
+  }
+
+  /**
+   * Risco semana a semana, do primeiro registro até hoje: as mesmas regras, aplicadas a cada data.
+   * Mostra como o aluno evoluiu mesmo nas semanas em que nenhum alerta novo foi gravado.
+   */
+  linhaDoTempo(historico: Indicador[], hoje: string = hojeIso(), semanas = 26): PontoDaLinhaDoTempo[] {
+    if (historico.length === 0) return [];
+    const primeiro = historico.reduce((menor, i) => (i.data < menor ? i.data : menor), hoje);
+    const pontos: PontoDaLinhaDoTempo[] = [];
+    for (let semana = 0; semana < semanas; semana++) {
+      const data = somarDias(hoje, -7 * semana);
+      pontos.unshift({ data, nivel: this.classificar(historico, data).nivel });
+      if (data < primeiro) break; // uma semana antes do primeiro registro: o ponto de partida
+    }
+    return pontos;
   }
 
   classificar(historico: Indicador[], dataReferencia: string = hojeIso()): Classificacao {

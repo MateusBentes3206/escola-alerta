@@ -2,7 +2,7 @@
 
 API REST do EscolaAlerta (TCC FAMETRO), em camadas **Controller → Service → Repository → PostgreSQL**, com os três padrões do documento de Arquitetura: **Strategy** (motor de regras), **Repository** (acesso a dados) e **Observer** (intervenção orientada).
 
-**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola, matriz de sugestões editável, painel por turma e por grupos parecidos, aviso de risco alto por e-mail e cadastro do responsável com os filhos. A suíte tem 150 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
+**Status:** Sprints 1 a 4 implementadas e integradas ao front, com plano de ação por disciplina/assunto, status do plano e agendamento de conversa família-escola, matriz de sugestões editável, painel por turma e por grupos parecidos, aviso de risco alto por e-mail e cadastro do responsável com os filhos. A suíte tem 154 testes automatizados (UT01–UT08, IT01–IT07, ST04 e RNF04).
 
 ---
 

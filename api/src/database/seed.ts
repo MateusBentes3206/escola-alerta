@@ -188,6 +188,55 @@ const INDICADORES_DO_CENARIO: Record<ContatoDemo['filho']['cenario'], () => Dado
   falta: () => [falta(22), falta(15), falta(9), falta(2)],
 };
 
+// Histórico antigo para o gráfico de evolução: só faltas, ocorrências e saídas com mais de 30 dias.
+// Essas regras olham os últimos 30 dias, então nada aqui muda o risco atual nem gera alerta.
+const PASSADO_DOS_ALUNOS: Record<string, () => DadosIndicador[]> = {
+  'Rafael Costa Lima': () => [falta(112), falta(105), falta(98), ocorrencia('Atrasos repetidos na primeira aula', 'moderada', 60)],
+  'Ana Beatriz Souza': () => [falta(84), falta(79), falta(74)],
+  'Diego Matos Pereira': () => [ocorrencia('Discussão em sala de aula', 'moderada', 95), falta(52), falta(47), falta(42)],
+  'Gabriel Nunes': () => [falta(105), falta(100), falta(95), falta(90), falta(85)],
+  'Larissa Mendes': () => [ocorrencia('Saiu da sala sem autorização', 'moderada', 80), ocorrencia('Desrespeito a colega', 'moderada', 74)],
+  'Mateus Rocha': () => [falta(66), falta(61), falta(56)],
+  'Helena Costa': () => [ocorrencia('Conflito com colega no recreio', 'moderada', 100), falta(50), falta(45), falta(40)],
+  'Lucas Ferreira': () => [falta(115), falta(110), falta(105), falta(60), falta(55), falta(50), falta(45), falta(40)],
+  'Pedro Alves': () => [falta(90), falta(85), falta(80)],
+  'Júlia Rocha': () => [falta(110), falta(104), falta(98), falta(92), falta(86), ocorrencia('Uso de celular em avaliação', 'moderada', 55)],
+  'Thiago Ferreira': () => [ocorrencia('Dano a material da escola', 'grave', 75), falta(48), falta(43), falta(38)],
+  'Vinícius Costa Lima': () => [ocorrencia('Empurrou colega na fila', 'moderada', 88), ocorrencia('Ofensa a colega', 'moderada', 58)],
+  'Enzo Carvalho': () => [ocorrencia('Recusou atividade em sala', 'moderada', 70), falta(100), falta(95), falta(90)],
+  'Kaio Santos': () => [falta(95), falta(90), falta(85), ocorrencia('Saiu da sala sem autorização', 'moderada', 50)],
+  'Sofia Nunes': () => [saida('Consulta médica', 110), saida('Mal-estar', 104), falta(70), falta(65), falta(60)],
+  'Felipe Carvalho': () => [ocorrencia('Discussão com colega', 'moderada', 90), falta(55), falta(50), falta(45)],
+  'Isabela Alves': () => [falta(75), falta(70), falta(65)],
+  'Marina Santos': () => [ocorrencia('Conversa excessiva após advertência', 'moderada', 65)],
+};
+
+const PASSADO_DO_CENARIO: Record<ContatoDemo['filho']['cenario'], () => DadosIndicador[]> = {
+  nota: () => [falta(95), falta(90), falta(85), ocorrencia('Atrasos repetidos na primeira aula', 'moderada', 55)],
+  falta: () => [ocorrencia('Conversa excessiva após advertência', 'moderada', 100), falta(70), falta(65), falta(60), falta(55), falta(50)],
+};
+
+async function gravarIndicador(pool: Pool, alunoId: string, registradoPor: string, d: DadosIndicador) {
+  await pool.query(
+    `INSERT INTO indicadores (aluno_id, registrado_por, tipo, data, disciplina, valor, periodo, assunto, justificada, gravidade, horario, descricao)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [alunoId, registradoPor, d.tipo, d.data, d.disciplina, d.valor, d.periodo, d.assunto, d.justificada, d.gravidade, d.horario, d.descricao],
+  );
+}
+
+/** Grava o histórico antigo uma vez por aluno. Direto no banco, sem reavaliar: não dispara alerta nem e-mail. */
+async function completarPassado(pool: Pool, nome: string, registradoPor: string, passado: () => DadosIndicador[]) {
+  const { rows } = await pool.query<{ id: string }>(
+    `SELECT a.id FROM alunos a
+     WHERE a.nome = $1 AND NOT EXISTS (
+       SELECT 1 FROM indicadores i WHERE i.aluno_id = a.id AND i.tipo <> 'NOTA' AND i.data < $2::date
+     )`,
+    [nome, somarDias(hojeIso(), -35)],
+  );
+  if (rows.length === 0) return;
+  for (const d of passado()) await gravarIndicador(pool, rows[0].id, registradoPor, d);
+}
+
 export async function rodarSeed(pool: Pool) {
   const hash = await bcrypt.hash(SENHA_PADRAO_SEED, 10);
   const ids: Record<string, string> = {};
@@ -227,13 +276,12 @@ export async function rodarSeed(pool: Pool) {
     if (rows.length === 0) continue; // aluno já existia: não duplica o histórico
 
     for (const d of a.indicadores()) {
-      await pool.query(
-        `INSERT INTO indicadores (aluno_id, registrado_por, tipo, data, disciplina, valor, periodo, assunto, justificada, gravidade, horario, descricao)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [rows[0].id, orientadorId, d.tipo, d.data, d.disciplina, d.valor, d.periodo, d.assunto, d.justificada, d.gravidade, d.horario, d.descricao],
-      );
+      await gravarIndicador(pool, rows[0].id, orientadorId, d);
     }
     // O motor avalia o histórico inicial: gera o primeiro alerta, o plano e as notificações.
     await servicoDeRisco.reavaliar(rows[0].id);
   }
+
+  for (const [nome, passado] of Object.entries(PASSADO_DOS_ALUNOS)) await completarPassado(pool, nome, orientadorId, passado);
+  for (const c of contatosReaisDaDemo()) await completarPassado(pool, c.filho.nome, orientadorId, PASSADO_DO_CENARIO[c.filho.cenario]);
 }

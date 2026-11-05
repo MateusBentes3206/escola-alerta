@@ -191,3 +191,30 @@ describe('UT05 - MotorDeRegras.classificar() sem sinais', () => {
     expect(c.causaRaiz).toBeNull();
   });
 });
+
+describe('Linha do tempo do risco (RF08)', () => {
+  const motor = MotorDeRegras.padrao();
+  const niveis = (historico: Parameters<MotorDeRegras['linhaDoTempo']>[0]) => motor.linhaDoTempo(historico, REF).map((p) => p.nivel);
+
+  it('sem registros não há linha', () => {
+    expect(motor.linhaDoTempo([], REF)).toEqual([]);
+  });
+
+  it('o risco sobe com as faltas e volta quando elas saem da janela de 30 dias', () => {
+    const faltas = [falta(diasAntes(75)), falta(diasAntes(73)), falta(diasAntes(71))];
+    const linha = niveis(faltas);
+    expect(linha[0]).toBe('BAIXO'); // antes do primeiro registro
+    expect(linha).toContain('MODERADO');
+    expect(linha[linha.length - 1]).toBe('BAIXO');
+  });
+
+  it('o último ponto é o risco de hoje', () => {
+    const historico = [nota('Matemática', 5.2), nota('Português', 5.8)];
+    const linha = motor.linhaDoTempo(historico, REF);
+    expect(linha[linha.length - 1]).toEqual({ data: REF, nivel: motor.classificar(historico, REF).nivel });
+  });
+
+  it('limita o tamanho da linha em históricos longos', () => {
+    expect(motor.linhaDoTempo([falta(diasAntes(400))], REF, 26)).toHaveLength(26);
+  });
+});
