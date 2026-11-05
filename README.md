@@ -65,7 +65,7 @@ Detalhes, endpoints e decisões de segurança: [`api/README.md`](api/README.md).
 ## Testes
 
 ```bash
-cd api && npm test            # 149 testes: unitários, integração e controle de acesso
+cd api && npm test            # 150 testes: unitários, integração e controle de acesso
 cd api && npm run avaliar:motor   # matriz de confusão do motor (RNF04: 97,4% de acerto)
 ```
 

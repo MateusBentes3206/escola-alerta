@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>EscolaAlerta — Protótipo</title>
+<title>EscolaAlerta</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.0/babel.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Kalam:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap');
 
   :root {
     --bg: #0B0D10;
@@ -40,48 +40,52 @@
     --risco-alto: #F87171;
     --risco-alto-bg: #3F282C;
     --risco-alto-border: rgba(248,113,113,.35);
+    --amarelo: #FFC845;
   }
 
   [data-theme="light"] {
-    --bg: #F6F3EC;
+    /* Versão 2 · Escola viva: azul e amarelo, fundo claro azulado */
+    --bg: #F2F7FF;
     --surface: #FFFFFF;
-    --surface-2: #FCFAF5;
-    --border: #E4DECE;
-    --border-strong: #D9D2BF;
-    --text: #23303A;
-    --text-muted: #5C6B78;
-    --text-faint: #6B604A;
-    --accent: #223A5E;
-    --accent-hover: #2C4A73;
-    --accent-glow: rgba(34,58,94,.22);
-    --accent-glow-strong: rgba(34,58,94,.3);
-    --success: #2F6B3D;
-    --warning: #8F5E0C;
-    --danger: #A8382B;
-    --danger-border: rgba(168,56,43,.4);
-    --sticky-bg: #FCF3D9;
-    --sticky-border: #E9D9A0;
-    --sticky-text: #4A4022;
-    --risco-baixo: #2F6B3D;
-    --risco-baixo-bg: #EAF2EA;
-    --risco-baixo-border: rgba(47,107,61,.35);
-    --risco-moderado: #8F5E0C;
-    --risco-moderado-bg: #FBF1DF;
-    --risco-moderado-border: rgba(143,94,12,.35);
-    --risco-alto: #A8382B;
-    --risco-alto-bg: #FBE9E6;
-    --risco-alto-border: rgba(168,56,43,.35);
+    --surface-2: #F7FAFF;
+    --border: #D5E2F7;
+    --border-strong: #B9CBE8;
+    --text: #1C2B4A;
+    --text-muted: #3D4C69;
+    --text-faint: #56668A;
+    --accent: #2A5CC7;
+    --accent-hover: #1F4FB0;
+    --accent-glow: rgba(42,92,199,.22);
+    --accent-glow-strong: rgba(42,92,199,.3);
+    --amarelo: #FFC845;
+    --success: #1E7A48;
+    --warning: #8A6400;
+    --danger: #B3261E;
+    --danger-border: rgba(179,38,30,.4);
+    --sticky-bg: #FFF1C2;
+    --sticky-border: #F2D77A;
+    --sticky-text: #4A3A00;
+    --risco-baixo: #1E7A48;
+    --risco-baixo-bg: #E2F5EA;
+    --risco-baixo-border: rgba(30,122,72,.35);
+    --risco-moderado: #8A6400;
+    --risco-moderado-bg: #FFF1C2;
+    --risco-moderado-border: rgba(138,100,0,.35);
+    --risco-alto: #B3261E;
+    --risco-alto-bg: #FFE0D6;
+    --risco-alto-border: rgba(179,38,30,.35);
   }
+
 
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); }
   body {
-    font-family: 'IBM Plex Sans', sans-serif; color: var(--text);
+    font-family: 'Nunito', sans-serif; color: var(--text);
     font-variant-numeric: tabular-nums;
   }
   #root { min-height: 100vh; }
 
-  h1 { letter-spacing: -0.01em; text-wrap: balance; color: var(--text); }
+  h1 { letter-spacing: -0.01em; text-wrap: balance; color: var(--text); font-family: 'Baloo 2', sans-serif; }
 
   .skip-link {
     position: absolute; left: 12px; top: -48px;
@@ -92,20 +96,23 @@
   }
   .skip-link:focus { top: 12px; }
 
-  .eyebrow { font-family: 'Kalam', cursive; font-size: 13.5px; color: var(--text-faint); }
+  .eyebrow { font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.35); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.35); }
+  [data-theme="light"] .card { border: 2px solid var(--border); box-shadow: 0 6px 18px rgba(28,43,74,.07); }
 
   .row-card {
     display: flex; align-items: center; justify-content: space-between;
     width: 100%; text-align: left; padding: 16px 18px; cursor: pointer;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); border: 2px solid var(--border); border-radius: 18px;
     color: var(--text); font-family: inherit;
     box-shadow: 0 1px 2px rgba(0,0,0,.4);
     transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
   }
   .row-card:hover { border-color: var(--border-strong); background: var(--surface-2); transform: translateY(-1px); box-shadow: 0 10px 24px rgba(0,0,0,.4); }
   .row-card:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  [data-theme="light"] .row-card { box-shadow: 0 2px 6px rgba(28,43,74,.06); }
+  [data-theme="light"] .row-card:hover { box-shadow: 0 6px 14px rgba(28,43,74,.1); }
 
   .field-label {
     display: block; font-size: 11.5px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;
@@ -114,7 +121,7 @@
 
   .field {
     width: 100%; border: 1px solid var(--border-strong); background: var(--surface-2); border-radius: 8px;
-    padding: 10px 12px; font-size: 14px; font-family: inherit; color: var(--text);
+    padding: 11px 13px; font-size: 15px; font-family: inherit; color: var(--text); border-width: 2px; border-radius: 12px;
   }
   .field::placeholder { color: var(--text-faint); }
   .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); background: var(--surface-2); }
@@ -122,7 +129,7 @@
   .btn-primary {
     display: inline-flex; align-items: center; gap: 8px;
     background: var(--accent); color: #fff; border: 1px solid rgba(0,0,0,.2);
-    padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    padding: 11px 20px; border-radius: 14px; font-size: 15px; font-weight: 800;
     cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.4);
     transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
   }
@@ -140,14 +147,14 @@
 
   .btn-ghost {
     background: transparent; border: 1px solid var(--border); color: var(--text-muted);
-    padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    padding: 10px 18px; border-radius: 14px; font-size: 14px; font-weight: 700; cursor: pointer;
     transition: background .15s ease, color .15s ease;
   }
   .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
 
   .icon-btn {
     background: transparent; border: 1px solid var(--border-strong); color: var(--text);
-    width: 34px; height: 34px; border-radius: 8px;
+    width: 38px; height: 38px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
     transition: background .15s ease;
   }
@@ -156,8 +163,8 @@
   .tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
   .tab {
     display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-    border: 1px solid; border-radius: 8px;
-    padding: 8px 14px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    border: 2px solid; border-radius: 999px;
+    padding: 8px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer;
     transition: background .12s ease, color .12s ease;
   }
   .tab.is-inactive:hover { background: var(--surface-2) !important; color: var(--text) !important; }
@@ -177,10 +184,41 @@
 
   .risk-badge {
     display: inline-flex; align-items: center; font-weight: 600;
-    border-radius: 6px; text-transform: uppercase; letter-spacing: .02em;
+    border-radius: 999px; text-transform: uppercase; letter-spacing: .02em;
   }
 
   input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+  /* Fotos (imagens geradas por IA, pessoas fictícias) */
+  .login-hero {
+    flex: 1 1 440px; max-width: 600px; border-radius: 28px; overflow: hidden; background: var(--surface);
+    border: 3px solid var(--text); box-shadow: 8px 8px 0 var(--amarelo);
+  }
+  .login-hero img { width: 100%; height: 280px; object-fit: cover; object-position: center 60%; display: block; }
+  .login-hero-texto { padding: 22px 26px 26px; display: flex; flex-direction: column; gap: 10px; }
+  .login-hero-texto h2 { font-family: 'Baloo 2', sans-serif; font-size: 34px; line-height: 1.05; margin: 0; color: var(--text); }
+  .login-hero-texto p { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--text-muted); }
+  .pill { align-self: flex-start; background: var(--sticky-bg); color: var(--sticky-text); font-weight: 800; font-size: 13px; padding: 5px 12px; border-radius: 999px; }
+  .boas-vindas {
+    display: flex; flex-wrap: wrap; border-radius: 28px; overflow: hidden; background: var(--surface);
+    border: 3px solid var(--text); box-shadow: 8px 8px 0 var(--amarelo); margin: 0 8px 28px 0;
+  }
+  .boas-vindas-texto { flex: 1 1 320px; min-width: 0; padding: 26px 28px; display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+  .boas-vindas-texto h1 { font-size: 36px; line-height: 1.05; margin: 0; }
+  .boas-vindas-texto p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--text-muted); }
+  .boas-vindas-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+  .boas-vindas-foto { flex: 1 1 280px; min-height: 220px; position: relative; }
+  .boas-vindas-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .contadores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+  .contador { background: var(--surface-2); border: 2px solid var(--border); border-radius: 16px; padding: 10px 12px; }
+  .contador strong { display: block; font-family: 'Baloo 2', sans-serif; font-size: 24px; line-height: 1.1; color: var(--text); }
+  .contador span { font-size: 12.5px; color: var(--text-muted); }
+  .sugestoes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .sugestao-card { background: var(--surface); border: 2px solid var(--border); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; }
+  .sugestao-card img { width: 100%; height: 140px; object-fit: cover; display: block; }
+  .sugestao-card p { margin: 0; padding: 14px 16px; font-size: 14.5px; line-height: 1.5; font-weight: 700; color: var(--text); }
+  .reforco-foto { width: 100%; height: 170px; object-fit: cover; display: block; border-radius: 14px; margin-bottom: 12px; }
+
 </style>
 <script>window.ESCOLAALERTA_API_URL = 'http://localhost:3333';</script>
 <script src="api.js"></script>
@@ -210,6 +248,40 @@ const TABS = {
 
 const CAUSA_LABEL = { faltas: "Frequência", notas: "Notas", ocorrencias: "Ocorrências", saidas: "Saídas antecipadas" };
 const CAMPO_POR_TIPO = { nota: "notas", falta: "faltas", ocorrencia: "ocorrencias", saida: "saidas" };
+/* Fotos geradas por IA (pessoas fictícias), em front/img. A foto de cada sugestão é escolhida
+   pelo tipo de ação descrito no texto, e cai na causa do alerta quando nenhuma palavra bate. */
+const FOTOS = {
+  reforcoGrupo: { src: "img/reforco-em-grupo.jpg", alt: "Alunos em roda com cadernos e um monitor ajudando" },
+  orientacao: { src: "img/conversa-orientacao.jpg", alt: "Orientadora e aluno conversando sentados, sorrindo" },
+  familiaEscola: { src: "img/conversa-familia-escola.jpg", alt: "Mãe e orientadora conversando à mesa da escola" },
+  calendario: { src: "img/calendario-retorno.jpg", alt: "Calendário num quadro de cortiça com uma data circulada" },
+  matematica: { src: "img/reforco-matematica.jpg", alt: "Professora explicando matemática no quadro para alunos" },
+  leitura: { src: "img/leitura-em-familia.jpg", alt: "Menino lendo um gibi para a mãe no sofá" },
+  estudoEmCasa: { src: "img/estudo-em-casa.jpg", alt: "Mãe e filho estudando juntos à mesa da cozinha" },
+};
+
+/** "Bom dia", "Boa tarde" ou "Boa noite", pela hora do computador. */
+function saudacao() {
+  const h = new Date().getHours();
+  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+}
+
+function fotoDaSugestao(texto, causa) {
+  const t = (texto || "").toLowerCase();
+  if (/retornar|7 dias|prazo/.test(t)) return FOTOS.calendario;
+  if (/reforço|monitoria|grupo de estudo|convivência/.test(t)) return FOTOS.reforcoGrupo;
+  if (/atendimento|escuta|orientação educacional|individual/.test(t)) return FOTOS.orientacao;
+  if (/família|conversa|transporte|saúde|apoio em casa|motivos das saídas/.test(t)) return FOTOS.familiaEscola;
+  return { notas: FOTOS.matematica, faltas: FOTOS.familiaEscola, ocorrencias: FOTOS.orientacao, saidas: FOTOS.calendario }[causa] || FOTOS.reforcoGrupo;
+}
+
+function fotoDaDisciplina(disciplina) {
+  const d = (disciplina || "").toLowerCase();
+  if (/matem|geometr|álgebra/.test(d)) return FOTOS.matematica;
+  if (/portugu|língua|lingua|inglês|ingles|espanhol|redação|literatura/.test(d)) return FOTOS.leitura;
+  return FOTOS.estudoEmCasa;
+}
+
 const NIVEL_LABEL = { BAIXO: "baixo", MODERADO: "moderado", ALTO: "alto" };
 
 function hojeIso() {
@@ -449,7 +521,7 @@ function App() {
   const avisos = <Avisos notificacoes={notificacoes} onMarcarLida={marcarLida} />;
 
   return (
-    <div data-theme={tema === "claro" ? "light" : undefined} style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "var(--bg)", minHeight: "100vh", color: "var(--text)" }}>
+    <div data-theme={tema === "claro" ? "light" : undefined} style={{ fontFamily: "'Nunito', sans-serif", background: "var(--bg)", minHeight: "100vh", color: "var(--text)" }}>
       <a href="#main-content" className="skip-link">Pular para o conteúdo</a>
       {tela !== "login" && tela !== "cadastro-familia" && (
         <TopBar
@@ -482,6 +554,8 @@ function App() {
         <OrientadorDashboard
           alunos={alunos}
           avisos={avisos}
+          solicitacoesPendentes={solicitacoes.filter((s) => s.status === "PENDENTE").length}
+          onSolicitacoes={() => { carregarSolicitacoes(); setTela("orientador-solicitacoes"); }}
           onNovoAluno={() => setTela("orientador-cadastro")}
           onAbrirAluno={(id) => abrirAluno(id, "orientador-indicador")}
         />
@@ -584,7 +658,7 @@ function TopBar({ perfil, onVoltar, onSair, tema, onAlternarTema, solicitacoesPe
           <Icon name="school" size={18} color="var(--accent)" />
         )}
         <div>
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 17, lineHeight: 1 }}>EscolaAlerta</div>
+          <div style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 700, fontSize: 17, lineHeight: 1 }}>EscolaAlerta</div>
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
             {perfil === "orientador" ? "Orientação escolar" : "Área do responsável"}
           </div>
@@ -999,7 +1073,7 @@ function CaixaDeSolicitacoes({ solicitacoes, onResponder, onAbrirAluno }) {
   return (
     <Page max={760}>
       <div className="eyebrow">agenda com as famílias</div>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, margin: "4px 0 18px" }}>Solicitações de conversa</h1>
+      <h1 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 26, margin: "4px 0 18px" }}>Solicitações de conversa</h1>
       <div className="tabs" role="tablist">
         {[["pendentes", "Pendentes"], ["confirmadas", "Confirmadas"], ["concluidas", "Concluídas"], ["recusadas", "Recusadas"]].map(([k, l]) => (
           <button
@@ -1125,7 +1199,7 @@ function ResumoTurma({ alunos, filtro, onFiltrar }) {
           onClick={() => onFiltrar(filtro === chave ? "todos" : chave)}
           style={{ padding: "12px 14px", textAlign: "left", cursor: "pointer", borderLeft: `3px solid ${cor}`, outline: filtro === chave ? `2px solid ${cor}` : "none", color: "var(--text)" }}
         >
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 700, color: cor, lineHeight: 1 }}>{total}</div>
+          <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 26, fontWeight: 700, color: cor, lineHeight: 1 }}>{total}</div>
           <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 6 }}>{label}</div>
         </button>
       ))}
@@ -1179,7 +1253,7 @@ function EditorMatriz({ onSalvo, onErro }) {
   return (
     <Page max={760}>
       <div className="eyebrow">plano de ação da escola</div>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, margin: "4px 0 6px" }}>Matriz de sugestões</h1>
+      <h1 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 26, margin: "4px 0 6px" }}>Matriz de sugestões</h1>
       <p style={{ fontSize: 13.5, color: "var(--text-muted)", margin: "0 0 18px", lineHeight: 1.55 }}>
         Ações que entram no plano conforme a causa do alerta. Adapte à realidade da escola.
         As mudanças valem para os <strong style={{ color: "var(--text)" }}>próximos planos</strong>; os já gerados ficam como estavam.
@@ -1381,7 +1455,7 @@ function Login({ onEntrar, onCriarConta, tema, onAlternarTema }) {
   }
 
   return (
-    <main id="main-content" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, position: "relative" }}>
+    <main id="main-content" style={{ minHeight: "100vh", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 40, padding: "72px 20px 40px", position: "relative" }}>
       <button
         onClick={onAlternarTema} className="icon-btn"
         aria-label={tema === "claro" ? "Ativar modo escuro" : "Ativar modo claro"}
@@ -1389,6 +1463,14 @@ function Login({ onEntrar, onCriarConta, tema, onAlternarTema }) {
       >
         <Icon name={tema === "claro" ? "moon" : "sun"} size={15} />
       </button>
+      <section className="login-hero" aria-label="Boas-vindas">
+        <img src="img/escola-fachada.jpg" alt="Fachada azul e amarela de uma escola com crianças de mochila chegando e acenando" />
+        <div className="login-hero-texto">
+          <span className="pill">Para famílias e escolas do 6º ao 9º ano</span>
+          <h2>Cada aluno visto a tempo de crescer.</h2>
+          <p>Quando notas, faltas ou ocorrências começam a mudar, o EscolaAlerta avisa e sugere o próximo passo, para a escola e a família cuidarem juntas.</p>
+        </div>
+      </section>
       <div style={{ width: "100%", maxWidth: 420 }}>
         <div style={{ textAlign: "center", marginBottom: 34 }}>
           <div style={{
@@ -1398,7 +1480,7 @@ function Login({ onEntrar, onCriarConta, tema, onAlternarTema }) {
           }}>
             <Icon name="school" size={26} />
           </div>
-          <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, margin: 0 }}>EscolaAlerta</h1>
+          <h1 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 28, margin: 0 }}>EscolaAlerta</h1>
           <p style={{ color: "var(--text-muted)", fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
             Acompanhamento acadêmico e comportamental para famílias e escola, com alerta antecipado de risco.
           </p>
@@ -1496,7 +1578,7 @@ function CadastroFamilia({ onCadastrado, onVoltar, tema, onAlternarTema }) {
         <button type="button" className="btn-ghost" onClick={onVoltar} style={{ marginBottom: 16, padding: "6px 12px", fontSize: 13 }}>
           <Icon name="arrow-left" size={13} /> Voltar para o login
         </button>
-        <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, margin: "0 0 6px" }}>Criar conta de responsável</h1>
+        <h1 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 26, margin: "0 0 6px" }}>Criar conta de responsável</h1>
         <p style={{ fontSize: 13.5, color: "var(--text-muted)", margin: "0 0 20px", lineHeight: 1.5 }}>
           Cadastre-se e informe seus filhos. A orientação escolar confirma o vínculo antes de você ver os dados de cada um.
         </p>
@@ -1635,7 +1717,9 @@ function AvisosEnviados({ alunoId }) {
 
 /* ---------------------- ORIENTADOR: dashboard ---------------------- */
 
-function OrientadorDashboard({ alunos, avisos, onNovoAluno, onAbrirAluno }) {
+function OrientadorDashboard({ alunos, avisos, solicitacoesPendentes, onSolicitacoes, onNovoAluno, onAbrirAluno }) {
+  const nomeUsuario = ((api.sessao.usuario && api.sessao.usuario.nome) || "").split(" ")[0];
+  const emAtencao = alunos.filter((a) => a.atencao).length;
   const [aba, setAba] = useState("lista");
   const [analise, setAnalise] = useState(null);
   const [erroAnalise, setErroAnalise] = useState("");
@@ -1660,18 +1744,30 @@ function OrientadorDashboard({ alunos, avisos, onNovoAluno, onAbrirAluno }) {
   const filtroAtivo = busca.trim() !== "" || filtroRisco !== "todos";
 
   return (
-    <Page max={760}>
-      {avisos}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 22, gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div className="eyebrow">turma sob acompanhamento</div>
-          <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, margin: "4px 0 0" }}>Seus alunos</h1>
+    <Page max={860}>
+      <section className="boas-vindas" aria-label="Boas-vindas">
+        <div className="boas-vindas-texto">
+          <div className="eyebrow">Orientação escolar</div>
+          <h1>{saudacao()}, {nomeUsuario}!</h1>
+          <p>
+            {emAtencao === 0
+              ? "Nenhum aluno precisa de atenção agora. Sua turma está tranquila."
+              : `${emAtencao} ${emAtencao === 1 ? "aluno precisa" : "alunos precisam"} da sua atenção.`}
+            {solicitacoesPendentes > 0 && ` ${solicitacoesPendentes === 1 ? "Há 1 família pedindo conversa." : `Há ${solicitacoesPendentes} famílias pedindo conversa.`}`}
+          </p>
+          <div className="boas-vindas-acoes">
+            <button className="btn-primary" onClick={onNovoAluno}><Icon name="plus" size={15} /> Cadastrar aluno</button>
+            {solicitacoesPendentes > 0 && (
+              <button className="btn-ghost" onClick={onSolicitacoes}><Icon name="calendar-check" size={14} /> Ver solicitações</button>
+            )}
+          </div>
         </div>
-        <button className="btn-primary" onClick={onNovoAluno}>
-          <Icon name="plus" size={15} /> Cadastrar aluno
-        </button>
-      </div>
+        <div className="boas-vindas-foto"><img src={FOTOS.reforcoGrupo.src} alt={FOTOS.reforcoGrupo.alt} /></div>
+      </section>
 
+      {avisos}
+
+      <h2 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, margin: "0 0 14px" }}>Seus alunos</h2>
       <ResumoTurma alunos={alunos} filtro={filtroRisco} onFiltrar={(f) => { setFiltroRisco(f); setAba("lista"); }} />
 
       <div className="tabs" role="tablist" aria-label="Visões do painel">
@@ -1766,7 +1862,7 @@ function CadastrarAluno({ onCancelar, onSalvar }) {
   return (
     <Page max={520}>
       <div className="eyebrow">novo cadastro</div>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 20px" }}>Cadastrar aluno</h1>
+      <h1 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, margin: "4px 0 20px" }}>Cadastrar aluno</h1>
 
       <form
         className="card" style={{ padding: 20 }}
@@ -1817,7 +1913,7 @@ function RegistrarIndicador({ aluno, onRegistrar, onEditar, onExcluir, onStatusP
   return (
     <Page max={640}>
       <div className="eyebrow">registro de indicador</div>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 4px" }}>{aluno.nome}</h1>
+      <h1 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, margin: "4px 0 4px" }}>{aluno.nome}</h1>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13.5, color: "var(--text-muted)" }}>{aluno.turma}</span>
         <span className="risk-badge" style={{ background: rs.bg, color: rs.cor, border: `1px solid ${rs.border}`, fontSize: 12, padding: "3px 10px" }}>{rs.label}</span>
@@ -2226,9 +2322,27 @@ function PainelResponsavel({ aluno, avisos, filhos, onTrocarAluno, onVerPlano })
   const { nivel, causaPrincipal } = classificarRisco(aluno);
   const rs = RISCO_STYLE[nivel];
   const totalIndicadores = aluno.notas.length + aluno.faltas.length + aluno.ocorrencias.length + aluno.saidas.length;
+  const primeiroNome = aluno.nome.split(" ")[0];
 
   return (
-    <Page>
+    <Page max={820}>
+      <section className="boas-vindas" aria-label="Boas-vindas">
+        <div className="boas-vindas-texto">
+          <div className="eyebrow">Área da família</div>
+          <h1>{saudacao()}, {aluno.responsavel.split(" ")[0]}!</h1>
+          <p>Aqui você acompanha como {primeiroNome} está na escola e o que dá para fazer junto com a orientação.</p>
+          {filhos && filhos.length > 1 && (
+            <div style={{ maxWidth: 280, marginTop: 4 }}>
+              <label className="field-label" htmlFor="trocar-aluno">Acompanhando</label>
+              <select id="trocar-aluno" className="field" value={aluno.id} onChange={(e) => onTrocarAluno(e.target.value)}>
+                {filhos.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="boas-vindas-foto"><img src={FOTOS.estudoEmCasa.src} alt={FOTOS.estudoEmCasa.alt} /></div>
+      </section>
+
       {avisos}
       {!aluno.vinculoConfirmado && (
         <p role="status" className="card" style={{ padding: "12px 14px", fontSize: 13.5, borderLeft: "3px solid var(--warning)", margin: "0 0 18px" }}>
@@ -2236,40 +2350,34 @@ function PainelResponsavel({ aluno, avisos, filhos, onTrocarAluno, onVerPlano })
           O cadastro de <strong>{aluno.nome}</strong> está aguardando a confirmação da orientação escolar. Enquanto isso, ainda não há registros da escola.
         </p>
       )}
-      <div className="eyebrow">painel de risco</div>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 22px" }}>
-        Olá, {aluno.responsavel.split(" ")[0]}
-      </h1>
-      {filhos && filhos.length > 1 && (
-        <div style={{ marginTop: -12, marginBottom: 18, maxWidth: 280 }}>
-          <label className="field-label" htmlFor="trocar-aluno">Acompanhando</label>
-          <select id="trocar-aluno" className="field" value={aluno.id} onChange={(e) => onTrocarAluno(e.target.value)}>
-            {filhos.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-          </select>
-        </div>
-      )}
 
-      <div className="card" style={{ padding: 24, borderLeft: `3px solid ${rs.cor}` }}>
-        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{aluno.nome} · {aluno.turma}</div>
+      <div className="card" style={{ padding: 24 }}>
+        <div className="eyebrow">{aluno.nome} · {aluno.turma}</div>
+        <h2 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, margin: "4px 0 0" }}>Como {primeiroNome} está</h2>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
           {nivel !== "baixo" && <Icon name="triangle-exclamation" size={20} color={rs.cor} />}
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 22, color: rs.cor }}>{rs.label}</span>
+          <span style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 700, fontSize: 22, color: rs.cor }}>{rs.label}</span>
         </div>
         {nivel !== "baixo" && causaPrincipal && (
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>
+          <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6 }}>
             Motivo principal: <strong style={{ color: "var(--text)" }}>{CAUSA_LABEL[causaPrincipal]}</strong>
           </p>
         )}
-        <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.55 }}>
+        <p style={{ fontSize: 14.5, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.55 }}>
           {nivel === "baixo"
-            ? "Nenhum sinal de risco identificado no momento. Continue acompanhando por aqui."
-            : "O motor de correlação identificou um padrão que pede atenção. Veja o plano de ação sugerido pela escola."}
+            ? `Tudo tranquilo: nenhum sinal de risco com ${primeiroNome} no momento. Continue acompanhando por aqui.`
+            : "A escola percebeu algo que pede atenção. Preparamos um plano com o que fazer na escola e em casa."}
         </p>
         {nivel !== "baixo" && (
           <button className="btn-primary" style={{ marginTop: 16 }} onClick={onVerPlano}>
             <Icon name="clipboard-list" size={15} /> Ver plano de ação
           </button>
         )}
+        <div className="contadores">
+          <div className="contador"><strong>{aluno.notas.length}</strong><span>notas</span></div>
+          <div className="contador"><strong>{aluno.faltas.length}</strong><span>faltas</span></div>
+          <div className="contador"><strong>{aluno.ocorrencias.length}</strong><span>ocorrências</span></div>
+        </div>
         <ExplicacaoRisco risco={classificarRisco(aluno)} />
         <EvolucaoRisco evolucao={aluno.evolucao} atual={aluno.risco.nivel} />
       </div>
@@ -2301,7 +2409,8 @@ function ReforcoPorAssunto({ reforcos }) {
       </div>
       <div style={{ display: "grid", gap: 14 }}>
         {reforcos.map((r) => (
-          <div key={`${r.disciplina}-${r.assunto}`} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${TABS.nota.color}`, borderRadius: 8, padding: "12px 14px" }}>
+          <div key={`${r.disciplina}-${r.assunto}`} style={{ border: "2px solid var(--border)", borderRadius: 18, padding: "12px 14px" }}>
+            <img className="reforco-foto" src={fotoDaDisciplina(r.disciplina).src} alt={fotoDaDisciplina(r.disciplina).alt} loading="lazy" />
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8 }}>
               <strong style={{ fontSize: 14.5 }}>{r.disciplina}</strong>
               {r.assunto && <span className="risk-badge" style={{ background: "transparent", color: "var(--text)", border: "1px solid var(--border-strong)", fontSize: 12, padding: "2px 9px", textTransform: "none", letterSpacing: 0 }}>{r.assunto}</span>}
@@ -2340,7 +2449,7 @@ function PlanoDeAcao({ aluno, onFeedback, solicitacoes, onAgendar, onAceitar }) 
   return (
     <Page>
       <div className="eyebrow">sugestão pedagógica</div>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, margin: "4px 0 6px" }}>
+      <h1 style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, margin: "4px 0 6px" }}>
         Plano de ação — {aluno.nome}
       </h1>
       <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginBottom: 20 }}>
@@ -2359,8 +2468,16 @@ function PlanoDeAcao({ aluno, onFeedback, solicitacoes, onAgendar, onAceitar }) 
           <Icon name="lightbulb" size={16} color="var(--warning)" />
           <span style={{ fontWeight: 600, fontSize: 14.5 }}>Sugestões da matriz pedagógica</span>
         </div>
-        <div style={{ display: "grid", gap: 10 }}>
-          {plano.sugestoes.map((s, i) => <div key={i} className="sticky-note">{s}</div>)}
+        <div className="sugestoes-grid">
+          {plano.sugestoes.map((s, i) => {
+            const foto = fotoDaSugestao(s, plano.causa);
+            return (
+              <article key={i} className="sugestao-card">
+                <img src={foto.src} alt={foto.alt} loading="lazy" />
+                <p>{s}</p>
+              </article>
+            );
+          })}
         </div>
       </div>
 
