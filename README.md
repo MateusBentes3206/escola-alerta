@@ -13,8 +13,11 @@ Trabalho de Conclusão de Curso de **Análise e Desenvolvimento de Sistemas** �
 
 ## 🎥 Vídeo de Apresentação do Projeto
 
-📌 Assista à demonstração do fluxo completo (registro → motor de regras → alerta → plano de ação → feedback):
-👉 [`Demonstração RF05-RF07-RF08/EscolaAlerta-RF05-RF07-RF08.mp4`](Demonstração%20RF05-RF07-RF08/EscolaAlerta-RF05-RF07-RF08.mp4)
+📌 Demonstração do fluxo completo (registro → motor de regras → alerta → plano de ação → feedback):
+
+![Vídeo de demonstração do EscolaAlerta](Demonstração%20RF05-RF07-RF08/EscolaAlerta-demo.gif)
+
+👉 Vídeo em alta qualidade (MP4): [`EscolaAlerta-RF05-RF07-RF08.mp4`](Demonstração%20RF05-RF07-RF08/EscolaAlerta-RF05-RF07-RF08.mp4)
 
 ---
 
