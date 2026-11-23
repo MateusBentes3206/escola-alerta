@@ -122,6 +122,20 @@ escola-alerta/
 
 ---
 
+## ☁️ Deploy (Render)
+
+O sistema roda hospedado em **um único serviço**: a API Express também entrega o front (`front/`), então tudo fica na mesma URL.
+
+1. No [Render](https://render.com), clique em **New → Blueprint** e escolha este repositório.
+2. O `render.yaml` cria o serviço web (API + front) e o PostgreSQL, ambos no plano gratuito.
+3. Com `AUTO_SETUP=true`, o servidor aplica as migrations e os dados fictícios de demonstração ao iniciar (sem duplicar nada em reinícios).
+
+Login de demonstração (senha `senha123`): orientadora `camila.duarte@escola.com.br`, responsável `beatriz.lima@email.com`.
+
+> Plano gratuito: o serviço "dorme" após 15 min sem acesso (o primeiro acesso leva ~1 min) e o PostgreSQL gratuito do Render expira em 30 dias.
+
+---
+
 ## ⚙️ Pré-requisitos
 
 Antes de começar, você precisará ter:
